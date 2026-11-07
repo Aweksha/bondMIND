@@ -8,8 +8,13 @@ BASE = "2026-11-06"
 
 
 def evaluate(client, **overrides):
-    body = {"curveId": "USD-UST-PAR", "baseDate": BASE, "securityIds": ["BM-C-0001"],
-            "shockNodes": [{"tenorYears": 1, "bp": 50}], "spreadMode": "hold_constant"}
+    body = {
+        "curveId": "USD-UST-PAR",
+        "baseDate": BASE,
+        "securityIds": ["BM-C-0001"],
+        "shockNodes": [{"tenorYears": 1, "bp": 50}],
+        "spreadMode": "hold_constant",
+    }
     body.update(overrides)
     return client.post("/api/v2/scenarios/evaluate", json=body)
 
@@ -27,18 +32,34 @@ def test_example_a_parallel_shock_reprices_bond(client):
     assert all(abs(p["shock_bp"] - 50) < 1e-6 for p in body["curve"]["points"])
     # duration/convexity approximation within a few cents for +50bp
     assert abs(res["approximation"]["error_vs_full"]) < 0.05
-    for key in ("input", "units", "warnings", "vintage", "engine_version", "calculated_at",
-                "methodology", "request_id"):
+    for key in (
+        "input",
+        "units",
+        "warnings",
+        "vintage",
+        "engine_version",
+        "calculated_at",
+        "methodology",
+        "request_id",
+    ):
         assert key in body
     assert res["assumptions"]["settlement_convention"].startswith("T+0")
     assert body["vintage"]["source"].startswith("U.S. Department of the Treasury")
 
 
 def test_example_b_overlay_two_dates_with_gaps(client):
-    r = client.get("/api/v2/curves/USD-UST-PAR/observations",
-                   params=[("dates", "2026-11-06"), ("dates", "2024-11-06"),
-                           ("tenors", 1.5), ("tenors", 24), ("tenors", 60),
-                           ("tenors", 120), ("tenors", 360)])
+    r = client.get(
+        "/api/v2/curves/USD-UST-PAR/observations",
+        params=[
+            ("dates", "2026-11-06"),
+            ("dates", "2024-11-06"),
+            ("tenors", 1.5),
+            ("tenors", 24),
+            ("tenors", 60),
+            ("tenors", 120),
+            ("tenors", 360),
+        ],
+    )
     assert r.status_code == 200, r.text
     obs = r.json()["observations"]
     assert [o["status"] for o in obs] == ["observed", "observed"]
@@ -50,18 +71,23 @@ def test_example_b_overlay_two_dates_with_gaps(client):
 
 
 def test_weekend_resolves_to_prior_observation_and_says_so(client):
-    obs = client.get("/api/v2/curves/USD-UST-PAR/observations",
-                     params={"dates": "2026-11-01"}).json()["observations"][0]  # a Sunday
+    obs = client.get(
+        "/api/v2/curves/USD-UST-PAR/observations", params={"dates": "2026-11-01"}
+    ).json()["observations"][0]  # a Sunday
     assert obs["status"] == "prior_observation" and obs["observed_date"] == "2026-10-30"
-    far = client.get("/api/v2/curves/USD-UST-PAR/observations",
-                     params={"dates": "2010-01-04"}).json()["observations"][0]
+    far = client.get(
+        "/api/v2/curves/USD-UST-PAR/observations", params={"dates": "2010-01-04"}
+    ).json()["observations"][0]
     assert far["status"] == "unavailable" and far["points"] == []
 
 
 def test_example_c_twist_with_spread_shock_is_reproducible(client):
-    kwargs = {"shockNodes": [{"tenorYears": 2, "bp": -25}, {"tenorYears": 10, "bp": 50}],
-              "spreadMode": "shock", "spreadShockBp": 20,
-              "securityIds": ["BM-C-0001", "BM-T-0003"]}
+    kwargs = {
+        "shockNodes": [{"tenorYears": 2, "bp": -25}, {"tenorYears": 10, "bp": 50}],
+        "spreadMode": "shock",
+        "spreadShockBp": 20,
+        "securityIds": ["BM-C-0001", "BM-T-0003"],
+    }
     a, b = evaluate(client, **kwargs).json(), evaluate(client, **kwargs).json()
     assert a["results"] == b["results"]
     assert a["curve"]["is_parallel"] is False
@@ -95,11 +121,23 @@ def test_validation_errors(client):
 def test_partial_failure_does_not_fail_other_securities(client, session_factory):
     with session_factory() as s:
         if s.get(Security, "BM-CALL-1") is None:
-            s.add(Security(id="BM-CALL-1", issuer_id="ISS-001", name="callable test",
-                           bond_type="corporate", currency="USD", coupon_rate=5,
-                           coupon_frequency=2, day_count="30/360", issue_date=date(2024, 1, 1),
-                           maturity_date=date(2030, 1, 1), is_callable=True, source="test",
-                           is_synthetic=True))
+            s.add(
+                Security(
+                    id="BM-CALL-1",
+                    issuer_id="ISS-001",
+                    name="callable test",
+                    bond_type="corporate",
+                    currency="USD",
+                    coupon_rate=5,
+                    coupon_frequency=2,
+                    day_count="30/360",
+                    issue_date=date(2024, 1, 1),
+                    maturity_date=date(2030, 1, 1),
+                    is_callable=True,
+                    source="test",
+                    is_synthetic=True,
+                )
+            )
             s.commit()
     body = evaluate(client, securityIds=["BM-C-0001", "BM-CALL-1", "NOPE"]).json()
     status = {r["security_id"]: r["status"] for r in body["results"]}
