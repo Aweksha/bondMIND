@@ -10,6 +10,7 @@ import argparse
 import csv
 import hashlib
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -151,13 +152,12 @@ def v_rating(r: dict, c: Ctx) -> dict:
 
 
 def v_curve(r: dict, c: Ctx) -> dict:
-    _require(r, ["id", "name", "currency", "curve_type", "compounding"])
+    _require(r, ["id", "name", "currency", "curve_type", "compounding", "source"])
     c.dedupe(("curve", r["id"]))
     c.curves.add(r["id"])
     return {
-        **{k: r[k] for k in ("id", "name", "currency", "curve_type", "compounding")},
-        "source": SOURCE,
-        "is_synthetic": True,
+        **{k: r[k] for k in ("id", "name", "currency", "curve_type", "compounding", "source")},
+        "is_synthetic": _bool(r.get("is_synthetic", "true")),
     }
 
 
@@ -168,7 +168,7 @@ def v_curve_point(r: dict, c: Ctx) -> dict:
     y = _dec(r, "yield_pct")
     if not Decimal(-5) <= y <= Decimal(25):
         raise RejectError("impossible_yield", f"yield {y}% outside [-5, 25] (unit mismatch?)")
-    tenor = int(r["tenor_months"])
+    tenor = _dec(r, "tenor_months")
     if tenor <= 0:
         raise RejectError("invalid_tenor", f"tenor {tenor} must be positive")
     c.dedupe(("cp", r["curve_id"], r["as_of"], tenor))
@@ -211,14 +211,27 @@ def v_quote(r: dict, c: Ctx) -> dict:
     }
 
 
+@dataclass(frozen=True)
+class Dataset:
+    name: str
+    file: str
+    model: type
+    validate: Callable[[dict, Ctx], dict]
+    has_run_fk: bool
+    source: str
+    is_synthetic: bool
+
+
 # Order matters: referenced datasets load first.
-DATASETS: list[tuple[str, type, Callable[[dict, Ctx], dict], bool]] = [
-    ("issuers", Issuer, v_issuer, False),
-    ("securities", Security, v_security, False),
-    ("ratings", RatingHistory, v_rating, True),
-    ("curves", BenchmarkCurve, v_curve, False),
-    ("curve_points", CurvePoint, v_curve_point, True),
-    ("quotes", MarketQuote, v_quote, True),
+DATASETS = [
+    Dataset("issuers", "issuers.csv", Issuer, v_issuer, False, SOURCE, True),
+    Dataset("securities", "securities.csv", Security, v_security, False, SOURCE, True),
+    Dataset("ratings", "ratings.csv", RatingHistory, v_rating, True, SOURCE, True),
+    Dataset("curves", "curves.csv", BenchmarkCurve, v_curve, False, SOURCE, False),
+    Dataset(
+        "curve_points", "ust_par_curve.csv", CurvePoint, v_curve_point, True, "us-treasury", False
+    ),
+    Dataset("quotes", "quotes.csv", MarketQuote, v_quote, True, SOURCE, True),
 ]
 
 
@@ -237,16 +250,28 @@ def reset(session: Session) -> None:
     session.commit()
 
 
-def load_dataset(
-    session: Session,
-    ctx: Ctx,
-    seed_dir: Path,
-    name: str,
-    model: type,
-    validate: Callable[[dict, Ctx], dict],
-    has_run_fk: bool,
-) -> IngestionRun | None:
-    path = seed_dir / f"{name}.csv"
+def _digest(seed_dir: Path, ds: Dataset) -> str:
+    return hashlib.sha256((seed_dir / ds.file).read_bytes()).hexdigest()
+
+
+def snapshot_changed(session: Session, seed_dir: Path) -> bool:
+    """True if a dataset was previously loaded from a different file version."""
+    for ds in DATASETS:
+        loaded = set(
+            session.scalars(
+                select(IngestionRun.file_sha256).where(
+                    IngestionRun.dataset == ds.name, IngestionRun.status == "succeeded"
+                )
+            )
+        )
+        if loaded and _digest(seed_dir, ds) not in loaded:
+            return True
+    return False
+
+
+def load_dataset(session: Session, ctx: Ctx, seed_dir: Path, ds: Dataset) -> IngestionRun | None:
+    name, model, validate, has_run_fk = ds.name, ds.model, ds.validate, ds.has_run_fk
+    path = seed_dir / ds.file
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     done = session.scalar(
         select(IngestionRun).where(
@@ -258,7 +283,11 @@ def load_dataset(
     if done:
         return None
     run = IngestionRun(
-        source=SOURCE, dataset=name, file_sha256=digest, status="running", is_synthetic=True
+        source=ds.source,
+        dataset=name,
+        file_sha256=digest,
+        status="running",
+        is_synthetic=ds.is_synthetic,
     )
     session.add(run)
     session.flush()
@@ -301,10 +330,14 @@ def load_dataset(
 
 
 def load_all(session: Session, seed_dir: Path) -> list[IngestionRun]:
+    if snapshot_changed(session, seed_dir):
+        # Seed data is demo data: a new snapshot version replaces the old one wholesale.
+        print("Seed snapshot changed since last load: reloading all datasets.")
+        reset(session)
     ctx = Ctx(session)
     runs = []
-    for name, model, validate, has_fk in DATASETS:
-        run = load_dataset(session, ctx, seed_dir, name, model, validate, has_fk)
+    for ds in DATASETS:
+        run = load_dataset(session, ctx, seed_dir, ds)
         if run:
             runs.append(run)
     return runs

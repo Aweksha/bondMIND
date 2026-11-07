@@ -31,9 +31,9 @@ SORTABLE = {
 }
 
 
-def ctx(db: Session, as_of: date | None = None) -> DataContext:
+def ctx(db: Session, as_of: date | None = None, synthetic: bool | None = None) -> DataContext:
     return DataContext(
-        is_synthetic=svc.any_synthetic(db),
+        is_synthetic=svc.any_synthetic(db) if synthetic is None else synthetic,
         as_of=as_of or svc.market_date(db),
         generated_at=svc.now(),
     )
@@ -146,7 +146,10 @@ def curve_points(curve_id: str, as_of: date | None = None, db: Session = Depends
     d, pts = svc.curve_snapshot(db, curve_id, as_of)
     if d is None:
         raise ApiError(404, "no_data", f"no points for {curve_id} on or before {as_of}")
-    return CurveSnapshot(curve_id=curve_id, as_of=d, points=pts, context=ctx(db, d))
+    curve = db.get(BenchmarkCurve, curve_id)
+    return CurveSnapshot(
+        curve_id=curve_id, as_of=d, points=pts, context=ctx(db, d, curve.is_synthetic)
+    )
 
 
 @router.get("/market/overview", response_model=MarketOverview, tags=["market"])
@@ -166,15 +169,19 @@ def market_overview(
     if curve:
         d, pts = svc.curve_snapshot(db, curve.id)
         if d:
-            snapshot = CurveSnapshot(curve_id=curve.id, as_of=d, points=pts, context=ctx(db, d))
+            snapshot = CurveSnapshot(
+                curve_id=curve.id, as_of=d, points=pts, context=ctx(db, d, curve.is_synthetic)
+            )
             d_prev, prev = svc.curve_snapshot(db, curve.id, d - timedelta(days=7))
             prev_map = {p.tenor_months: p.yield_pct for p in prev}
             change = {
-                p.tenor_months: round(float(p.yield_pct - prev_map[p.tenor_months]) * 100, 1)
+                f"{float(p.tenor_months):g}": round(
+                    float(p.yield_pct - prev_map[p.tenor_months]) * 100, 1
+                )
                 for p in pts
                 if p.tenor_months in prev_map
             }
-            curve_xy = [(p.tenor_months / 12, float(p.yield_pct)) for p in pts]
+            curve_xy = [(float(p.tenor_months) / 12, float(p.yield_pct)) for p in pts]
             stmt, _, _ = svc.security_query()
             for row in db.execute(
                 stmt.where(Security.currency == currency, Security.bond_type == "corporate")

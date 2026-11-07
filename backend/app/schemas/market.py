@@ -48,7 +48,7 @@ class CurveInfo(ApiModel):
 
 
 class CurvePointOut(ApiModel):
-    tenor_months: int
+    tenor_months: Num
     yield_pct: Num
 
 
@@ -56,7 +56,7 @@ class CurveSnapshot(ApiModel):
     curve_id: str
     as_of: date
     points: list[CurvePointOut]
-    interpolation: str = "none (observed tenors only)"
+    interpolation: str = "none: observed tenors only, missing tenors are not inferred"
     context: DataContext
 
 
@@ -73,7 +73,7 @@ class SeriesFreshness(ApiModel):
 class MarketOverview(ApiModel):
     currency: str
     curve: CurveSnapshot | None
-    curve_change_bp_1w: dict[int, float]
+    curve_change_bp_1w: dict[str, float]  # key: tenor in months, e.g. "1.5", "120"
     avg_corporate_yield_pct: Num | None
     avg_spread_by_rating_bp: dict[str, float]
     securities_count: int

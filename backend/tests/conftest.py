@@ -1,4 +1,5 @@
 import os
+import shutil
 
 os.environ.setdefault("BONDMIND_DATABASE_URL", "sqlite+pysqlite:///:memory:")
 
@@ -19,8 +20,15 @@ from app.seed.load import load_all
 @pytest.fixture(scope="session")
 def seed_dir(tmp_path_factory):
     d = tmp_path_factory.mktemp("seed")
+    copy_real_curve(d)
     generate(d)
     return d
+
+
+def copy_real_curve(d):
+    src = get_settings().seed_dir
+    for name in ("ust_par_curve.csv", "ust_par_curve.meta.json"):
+        shutil.copy(src / name, d / name)
 
 
 @pytest.fixture(scope="session")

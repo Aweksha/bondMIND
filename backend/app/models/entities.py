@@ -123,7 +123,7 @@ class CurvePoint(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     curve_id: Mapped[str] = mapped_column(ForeignKey("benchmark_curves.id"))
     as_of: Mapped[date] = mapped_column(Date)
-    tenor_months: Mapped[int] = mapped_column(Integer)
+    tenor_months: Mapped[Decimal] = mapped_column(Numeric(6, 2))
     yield_pct: Mapped[Decimal] = mapped_column(RATE)
     ingestion_run_id: Mapped[int] = mapped_column(ForeignKey("ingestion_runs.id"))
     __table_args__ = (UniqueConstraint("curve_id", "as_of", "tenor_months"),)

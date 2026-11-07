@@ -1,6 +1,8 @@
-"""Deterministic SYNTHETIC demo dataset generator.
+"""Deterministic SYNTHETIC demo bond dataset, priced off the REAL U.S. Treasury curve.
 
-Everything produced here is fabricated for demonstration and labeled is_synthetic=true.
+Issuers, bonds, ratings, credit spreads and quotes are fabricated and labeled
+is_synthetic=true. The benchmark curve is the real Treasury par curve snapshot
+(data/seed/ust_par_curve.csv, written by app.ingest.ust_treasury).
 It must never be presented as market observations. Run:  python -m app.seed.generate
 Output: CSV snapshots + manifest.json in data/seed/ (same seed -> byte-identical files).
 A few deliberately invalid rows are appended so the data-quality quarantine is exercised.
@@ -17,11 +19,10 @@ from pathlib import Path
 from app.analytics.bond import FixedRateBond, clean_price
 from app.core.config import get_settings
 
-GENERATOR_VERSION = "1.0.0"
+GENERATOR_VERSION = "2.0.0"
 SEED = 20261106
-START, END = date(2024, 11, 1), date(2026, 10, 30)
-TENORS_M = [1, 3, 6, 12, 24, 36, 60, 84, 120, 240, 360]
-CURVE_ID = "USD-UST-PAR-SYN"
+START, END = date(2024, 11, 1), date(2026, 11, 6)
+CURVE_ID = "USD-UST-PAR"
 SOURCE = "synthetic-generator"
 
 SECTORS = [
@@ -70,19 +71,18 @@ NAME_B = {
 }
 
 
-def business_days(start: date, end: date) -> list[date]:
-    days, d = [], start
-    while d <= end:
-        if d.weekday() < 5:
-            days.append(d)
-        d += timedelta(days=1)
-    return days
-
-
-def nelson_siegel(t_years: float, b0: float, b1: float, b2: float, tau: float = 2.0) -> float:
-    x = t_years / tau
-    f = (1 - math.exp(-x)) / x
-    return b0 + b1 * f + b2 * (f - math.exp(-x))
+def load_real_curve(out_dir: Path) -> dict[date, tuple[list[float], list[float]]]:
+    by_day: dict[date, list[tuple[float, float]]] = {}
+    with (out_dir / "ust_par_curve.csv").open(newline="") as fh:
+        for r in csv.DictReader(fh):
+            d = date.fromisoformat(r["as_of"])
+            if START <= d <= END:
+                by_day.setdefault(d, []).append(
+                    (float(r["tenor_months"]) / 12, float(r["yield_pct"]))
+                )
+    if not by_day:
+        raise SystemExit("ust_par_curve.csv missing: run python -m app.ingest.ust_treasury")
+    return {d: ([t for t, _ in sorted(p)], [y for _, y in sorted(p)]) for d, p in by_day.items()}
 
 
 def interp(xs: list[float], ys: list[float], x: float) -> float:
@@ -104,22 +104,8 @@ def round_eighth(x: float) -> float:
 def generate(out_dir: Path) -> dict:
     rng = random.Random(SEED)
     out_dir.mkdir(parents=True, exist_ok=True)
-    days = business_days(START, END)
-
-    # --- Treasury par curve: mean-reverting Nelson-Siegel factors -------------------
-    b0, b1, b2 = 4.35, 0.25, -0.6
-    curve_rows, curve_by_day = [], {}
-    for d in days:
-        b0 += 0.02 * (4.1 - b0) + rng.gauss(0, 0.045)
-        b1 += 0.02 * (-0.2 - b1) + rng.gauss(0, 0.035)
-        b2 += 0.02 * (-0.5 - b2) + rng.gauss(0, 0.05)
-        ys = [round(nelson_siegel(m / 12, b0, b1, b2), 4) for m in TENORS_M]
-        curve_by_day[d] = ys
-        curve_rows += [
-            {"curve_id": CURVE_ID, "as_of": d.isoformat(), "tenor_months": m, "yield_pct": y}
-            for m, y in zip(TENORS_M, ys, strict=True)
-        ]
-    tenor_years = [m / 12 for m in TENORS_M]
+    curve_by_day = load_real_curve(out_dir)
+    days = sorted(curve_by_day)
 
     # --- Issuers, ratings ---------------------------------------------------------
     issuers, ratings, issuer_meta = [], [], {}
@@ -184,7 +170,7 @@ def generate(out_dir: Path) -> dict:
                 "name": f"UST {years}Y synthetic #{n + 1}",
                 "bond_type": "treasury",
                 "currency": "USD",
-                "coupon_rate": round_eighth(interp(tenor_years, curve_by_day[days[0]], years)),
+                "coupon_rate": round_eighth(interp(*curve_by_day[days[0]], years)),
                 "coupon_frequency": 2,
                 "day_count": "ACT/ACT",
                 "issue_date": issue.isoformat(),
@@ -200,7 +186,7 @@ def generate(out_dir: Path) -> dict:
             mat = date(issue.year + years, issue.month, min(issue.day, 28))
             if mat <= END + timedelta(days=120):
                 mat = date(END.year + rng.randint(1, 8), issue.month, min(issue.day, 28))
-            cpn = interp(tenor_years, curve_by_day[days[0]], years) + meta["spread_bp"] / 100
+            cpn = interp(*curve_by_day[days[0]], years) + meta["spread_bp"] / 100
             securities.append(
                 {
                     "id": f"BM-C-{k:04d}",
@@ -232,7 +218,7 @@ def generate(out_dir: Path) -> dict:
                 date.fromisoformat(s["issue_date"]), mat, s["coupon_rate"] / 100, 2, s["day_count"]
             )
             t = (mat - d).days / 365.25
-            y = interp(tenor_years, curve_by_day[d], t)
+            y = interp(*curve_by_day[d], t)
             if s["bond_type"] == "corporate":
                 meta = issuer_meta[s["issuer_id"]]
                 spread = meta["spread_bp"] + issuer_shock[s["issuer_id"]] + 4 * math.sqrt(t)
@@ -281,8 +267,8 @@ def generate(out_dir: Path) -> dict:
         }
     )
     quotes.append({**quotes[-2], "security_id": "BM-X-9999"})  # unknown security
-    curve_rows.append(
-        {"curve_id": CURVE_ID, "as_of": bad_day, "tenor_months": 18, "yield_pct": 425.0}
+    quotes.append(
+        {**quotes[-4], "security_id": "BM-C-0003", "as_of": bad_day, "mid_yield_pct": 425.0}
     )  # bp entered as percent
 
     datasets = {
@@ -292,13 +278,14 @@ def generate(out_dir: Path) -> dict:
         "curves": [
             {
                 "id": CURVE_ID,
-                "name": "USD Treasury par curve (synthetic)",
+                "name": "U.S. Treasury par yield curve",
                 "currency": "USD",
                 "curve_type": "par",
                 "compounding": "semiannual",
+                "source": "us-treasury",
+                "is_synthetic": False,
             }
         ],
-        "curve_points": curve_rows,
         "quotes": quotes,
     }
     manifest = {
@@ -307,6 +294,7 @@ def generate(out_dir: Path) -> dict:
         "is_synthetic": True,
         "start": START.isoformat(),
         "end": END.isoformat(),
+        "benchmark_curve": "ust_par_curve.csv (real U.S. Treasury data)",
         "files": {},
     }
     for name, rows in datasets.items():

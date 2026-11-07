@@ -36,11 +36,11 @@ def test_security_detail_and_404(client):
 
 def test_curves(client):
     curves = client.get("/api/v1/curves").json()
-    assert curves[0]["is_synthetic"] is True
+    assert curves[0]["id"] == "USD-UST-PAR" and curves[0]["is_synthetic"] is False
     snap = client.get(f"/api/v1/curves/{curves[0]['id']}/points").json()
-    assert [p["tenor_months"] for p in snap["points"]][:3] == [1, 3, 6]
-    # the bad 18m point (425%) must have been quarantined, not loaded
-    assert 18 not in [p["tenor_months"] for p in snap["points"]]
+    assert snap["context"]["is_synthetic"] is False
+    assert [p["tenor_months"] for p in snap["points"]][:3] == [1, 1.5, 2]
+    assert snap["points"][-1]["tenor_months"] == 360
 
 
 def test_overview_and_quality(client):

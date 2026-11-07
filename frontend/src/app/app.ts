@@ -29,7 +29,7 @@ interface NavItem {
       <div class="content">
         <header class="topbar">
           <span class="env-badge" role="status">
-            DEMO · SYNTHETIC DATA. These are not market observations.
+            DEMO · Synthetic bonds &amp; quotes · Real U.S. Treasury curve
           </span>
           <span class="disclaimer">Research tool only. Not investment advice.</span>
         </header>

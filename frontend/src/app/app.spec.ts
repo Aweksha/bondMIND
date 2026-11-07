@@ -12,11 +12,11 @@ describe('App shell', () => {
     }).compileComponents();
   });
 
-  it('labels the environment as synthetic demo data', async () => {
+  it('labels synthetic and real data sources', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('.env-badge')?.textContent).toContain('SYNTHETIC DATA');
+    expect(el.querySelector('.env-badge')?.textContent).toContain('Synthetic bonds');
     expect(el.textContent).toContain('Not investment advice');
   });
 

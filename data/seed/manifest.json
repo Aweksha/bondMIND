@@ -1,9 +1,10 @@
 {
-  "generator_version": "1.0.0",
+  "generator_version": "2.0.0",
   "seed": 20261106,
   "is_synthetic": true,
   "start": "2024-11-01",
-  "end": "2026-10-30",
+  "end": "2026-11-06",
+  "benchmark_curve": "ust_par_curve.csv (real U.S. Treasury data)",
   "files": {
     "issuers": {
       "rows": 21,
@@ -11,23 +12,19 @@
     },
     "securities": {
       "rows": 70,
-      "sha256": "ce289b065acb1d2cccb890970176b08b07bf4776310055cbe5b15df4782b6475"
+      "sha256": "b7e22c9530782cf924838ca1b937521fe571f64d700b9f4bb9ed02a2643a5538"
     },
     "ratings": {
       "rows": 24,
-      "sha256": "a76162900dcb015c5de90e0f793caa6b81165b0075345506efebd352a8665a73"
+      "sha256": "aafa58db7ea199d7ba778c7c356e24e2241de404ee7eab259fd6ee513fa988f0"
     },
     "curves": {
       "rows": 1,
-      "sha256": "7ed93600437795ddaf43735135dabb177556cc4ad9ed16fca0644034adb76b72"
-    },
-    "curve_points": {
-      "rows": 5732,
-      "sha256": "d36e741d6e6ad310b0add3c6c9c383b58a20eed77aba699b3e652f3dc2167214"
+      "sha256": "aed9d635f91289bd6731d4966d45c3014c8a6731be63e9922b479f068837f89f"
     },
     "quotes": {
-      "rows": 35824,
-      "sha256": "041938bc2e4246617e8df9b281fc141e6a37d753e971a12a5735c7f48075bbd6"
+      "rows": 34636,
+      "sha256": "321930967e7c0ca94014185c11d6c3f4f9e8cd2d4a6db70208f5e0bdf47444ae"
     }
   }
 }
