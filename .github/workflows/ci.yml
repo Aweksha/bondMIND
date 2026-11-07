@@ -42,7 +42,7 @@ jobs:
       - name: Tests (SQLite)
         run: pytest
         env:
-          BONDMIND_DATABASE_URL: sqlite+pysqlite:///:memory:
+          BONDMIND_DATABASE_URL: "sqlite+pysqlite:///:memory:"
       - name: Tests (PostgreSQL)
         run: |
           PGPASSWORD=bondmind psql -h localhost -U bondmind -c "create database bondmind_test"
