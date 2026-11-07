@@ -1,0 +1,21 @@
+[project]
+name = "bondmind-api"
+version = "0.1.0"
+description = "bondMIND AI backend: API, analytics, ingestion"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "S"]
+ignore = ["S101", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"app/seed/generate.py" = ["S311"]
+"tests/*" = ["S"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

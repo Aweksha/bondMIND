@@ -1,0 +1,33 @@
+{
+  "generator_version": "1.0.0",
+  "seed": 20261106,
+  "is_synthetic": true,
+  "start": "2024-11-01",
+  "end": "2026-10-30",
+  "files": {
+    "issuers": {
+      "rows": 21,
+      "sha256": "0d589df151ef6d490e7e79a97742a52232af055ae4c780f1a14896153e6703bd"
+    },
+    "securities": {
+      "rows": 70,
+      "sha256": "ce289b065acb1d2cccb890970176b08b07bf4776310055cbe5b15df4782b6475"
+    },
+    "ratings": {
+      "rows": 24,
+      "sha256": "a76162900dcb015c5de90e0f793caa6b81165b0075345506efebd352a8665a73"
+    },
+    "curves": {
+      "rows": 1,
+      "sha256": "7ed93600437795ddaf43735135dabb177556cc4ad9ed16fca0644034adb76b72"
+    },
+    "curve_points": {
+      "rows": 5732,
+      "sha256": "d36e741d6e6ad310b0add3c6c9c383b58a20eed77aba699b3e652f3dc2167214"
+    },
+    "quotes": {
+      "rows": 35824,
+      "sha256": "041938bc2e4246617e8df9b281fc141e6a37d753e971a12a5735c7f48075bbd6"
+    }
+  }
+}

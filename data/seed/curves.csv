@@ -1,0 +1,2 @@
+id,name,currency,curve_type,compounding
+USD-UST-PAR-SYN,USD Treasury par curve (synthetic),USD,par,semiannual
