@@ -19,18 +19,26 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/screener/screener').then((m) => m.Screener),
   },
   {
-    path: 'securities/:id',
-    title: 'Security · bondMIND',
-    loadComponent: () => import('./pages/security/security').then((m) => m.SecurityPage),
+    path: 'terminal',
+    title: 'Terminal · bondMIND',
+    loadComponent: () => import('./pages/terminal/terminal').then((m) => m.Terminal),
   },
+  {
+    path: 'terminal/security/:id',
+    title: 'Terminal · bondMIND',
+    loadComponent: () => import('./pages/terminal/terminal').then((m) => m.Terminal),
+  },
+  {
+    path: 'curve-lab',
+    title: 'Curve Lab · bondMIND',
+    loadComponent: () => import('./pages/curve-lab/curve-lab').then((m) => m.CurveLab),
+  },
+  { path: 'securities/:id', redirectTo: 'terminal/security/:id' },
+  { path: 'curves', redirectTo: 'curve-lab' },
   {
     path: 'data',
     title: 'Data / Models · bondMIND',
     loadComponent: () => import('./pages/data-quality/data-quality').then((m) => m.DataQuality),
-  },
-  {
-    path: 'curves',
-    ...placeholder('Yield Curve Lab', 'M1', 'Curve chart, interpolation, history and shocks.'),
   },
   {
     path: 'signals',

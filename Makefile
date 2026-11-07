@@ -1,4 +1,4 @@
-.PHONY: up down reset-demo backend-setup api web test lint seed-generate
+.PHONY: up down reset-demo backend-setup api web test e2e lint seed-generate refresh-curve
 
 up:            ## Start the full stack (db + api + web) at http://localhost:8080
 	docker compose up -d --build --wait
@@ -26,6 +26,12 @@ seed-generate: ## Regenerate synthetic CSV snapshots (deterministic)
 test:
 	cd backend && .venv/bin/pytest
 	cd frontend && npx ng test --watch=false
+
+e2e:           ## Browser tests against the running stack (make up first)
+	cd frontend && npx playwright test
+
+refresh-curve: ## Download the latest U.S. Treasury par curve snapshot
+	cd backend && .venv/bin/python -m app.ingest.ust_treasury --from-year 2019
 
 lint:
 	cd backend && .venv/bin/ruff check . && .venv/bin/ruff format --check .

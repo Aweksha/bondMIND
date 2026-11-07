@@ -126,7 +126,7 @@
               @for (c of columns; track c.key) {
                 <td [class.num]="c.numeric" [class.missing]="value(row, c.key) === '—'">
                   @if (c.key === 'id') {
-                    <a [routerLink]="['/securities', row.id]">{{ row.id }}</a>
+                    <a [routerLink]="['/terminal/security', row.id]">{{ row.id }}</a>
                   } @else {
                     {{ value(row, c.key) }}
                   }

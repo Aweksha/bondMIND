@@ -1,0 +1,305 @@
+<div class="page-head">
+  <h1>Research terminal</h1>
+  <span class="muted">Press <kbd>/</kbd> to search</span>
+</div>
+
+<div class="terminal">
+  <!-- Search / list panel -->
+  <section class="panel tpanel" aria-labelledby="search-h">
+    <h2 id="search-h">Securities</h2>
+    <input
+      #searchBox
+      type="search"
+      placeholder="ID, issuer, name, sector…"
+      aria-label="Search securities"
+      [value]="store.terminalQuery()"
+      (input)="store.terminalQuery.set($any($event.target).value)"
+    />
+    @switch (results().state) {
+      @case ('loading') {
+        <div class="skeleton-list" aria-busy="true"><span></span><span></span><span></span></div>
+      }
+      @case ('error') {
+        <p class="error" role="alert">Search failed. Try again.</p>
+      }
+      @case ('ok') {
+        @if (results(); as r) {
+          @if (r.state === 'ok') {
+            <p class="muted small" aria-live="polite">{{ r.data.total }} results</p>
+            <ul class="result-list">
+              @for (s of r.data.items; track s.id) {
+                <li>
+                  <button
+                    type="button"
+                    [class.active]="s.id === store.selectedSecurityId()"
+                    [attr.aria-current]="s.id === store.selectedSecurityId() ? 'true' : null"
+                    (click)="open(s.id)"
+                  >
+                    <span class="r-id">{{ s.id }}</span>
+                    <span class="r-meta"
+                      >{{ s.rating ?? s.bond_type }} · {{ s.maturity_date.slice(0, 4) }}</span
+                    >
+                    <span class="r-name">{{ s.issuer_name }}</span>
+                    <span class="r-num num">{{ fmt(s.mid_yield_pct, 2) }}%</span>
+                  </button>
+                </li>
+              } @empty {
+                <li class="muted">No securities match “{{ store.terminalQuery() }}”.</li>
+              }
+            </ul>
+          }
+        }
+      }
+    }
+  </section>
+
+  <!-- Detail panel -->
+  <section class="panel tpanel" aria-labelledby="detail-h">
+    @if (!store.selectedSecurityId()) {
+      <h2 id="detail-h">Security</h2>
+      <p class="muted">Select a security from the list to see pricing, risk and cash flows.</p>
+    } @else {
+      @switch (analytics()?.state) {
+        @case ('loading') {
+          <h2 id="detail-h">{{ store.selectedSecurityId() }}</h2>
+          <div class="skeleton-tiles" aria-busy="true">
+            <span></span><span></span><span></span><span></span>
+          </div>
+        }
+        @case ('error') {
+          <h2 id="detail-h">{{ store.selectedSecurityId() }}</h2>
+          @if (analytics(); as a) {
+            @if (a.state === 'error') {
+              <div class="error" role="alert">
+                <strong>Calculation unavailable:</strong> {{ a.error.message }}
+                <div class="muted small">
+                  No metrics are shown rather than guessing ({{ a.error.code }}).
+                </div>
+              </div>
+            }
+          }
+        }
+        @case ('ok') {
+          @if (analytics(); as a) {
+            @if (a.state === 'ok') {
+              <h2 id="detail-h">
+                {{ a.data.security_id }}
+                @if (a.data.is_synthetic) {
+                  <span class="tag">synthetic bond</span>
+                }
+              </h2>
+              <div class="metric-grid">
+                <div class="metric">
+                  <span>Clean (mid)</span><b>{{ fmt(a.data.pricing.clean, 3) }}</b>
+                </div>
+                <div class="metric">
+                  <span>Dirty</span><b>{{ fmt(a.data.pricing.dirty, 3) }}</b>
+                </div>
+                <div class="metric">
+                  <span>Accrued</span><b>{{ fmt(a.data.pricing.accrued, 4) }}</b>
+                </div>
+                <div class="metric">
+                  <span>YTM</span><b>{{ fmt(a.data.pricing.ytm_pct, 3) }}%</b>
+                </div>
+                <div class="metric">
+                  <span>Mod. duration</span><b>{{ fmt(a.data.yield_risk.modified_duration, 3) }}</b>
+                </div>
+                <div class="metric">
+                  <span>Eff. duration</span
+                  ><b>{{ fmt(a.data.curve_risk.effective_duration, 3) }}</b>
+                </div>
+                <div class="metric">
+                  <span>Convexity</span><b>{{ fmt(a.data.yield_risk.convexity, 2) }}</b>
+                </div>
+                <div class="metric" title="Signed dirty-price change per 100 face for +1bp">
+                  <span>DV01 (per 100)</span><b>{{ fmt(a.data.curve_risk.dv01, 4) }}</b>
+                </div>
+                <div class="metric">
+                  <span>Z-spread</span><b>{{ fmt(a.data.curve_risk.z_spread_bp, 1) }} bp</b>
+                </div>
+                <div class="metric">
+                  <span>G-spread</span><b>{{ fmt(a.data.curve_risk.g_spread_bp, 1) }} bp</b>
+                </div>
+                <div class="metric">
+                  <span>Bid / Ask</span
+                  ><b>{{ fmt(a.data.quote.bid, 2) }} / {{ fmt(a.data.quote.ask, 2) }}</b>
+                </div>
+                <div class="metric">
+                  <span>As of</span><b>{{ a.data.as_of }}</b>
+                </div>
+              </div>
+            }
+          }
+        }
+      }
+
+      <div class="subhead">
+        <h3>History</h3>
+        <div class="seg" role="group" aria-label="Metric">
+          <button type="button" [class.on]="metric() === 'yield'" (click)="metric.set('yield')">
+            Yield
+          </button>
+          <button type="button" [class.on]="metric() === 'price'" (click)="metric.set('price')">
+            Price
+          </button>
+        </div>
+        <div class="seg" role="group" aria-label="Time range">
+          @for (r of ranges; track r) {
+            <button type="button" [class.on]="range() === r" (click)="range.set(r)">{{ r }}</button>
+          }
+        </div>
+      </div>
+      @switch (history()?.state) {
+        @case ('ok') {
+          <bm-chart
+            [option]="historyOption()"
+            [title]="
+              store.selectedSecurityId() +
+              ' ' +
+              (metric() === 'yield' ? 'mid YTM %' : 'mid clean price')
+            "
+            [filename]="'bondmind-' + store.selectedSecurityId() + '-history'"
+            [height]="240"
+          />
+          <details>
+            <summary>Show history as a table ({{ historyPoints().length }} rows)</summary>
+            <div class="table-wrap scroll-y">
+              <table class="data">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th class="num">Clean</th>
+                    <th class="num">YTM %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (p of historyPoints(); track p.as_of) {
+                    <tr>
+                      <td>{{ p.as_of }}</td>
+                      <td class="num">{{ fmt(p.mid_price, 3) }}</td>
+                      <td class="num">{{ fmt(p.mid_yield_pct, 3) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </details>
+        }
+        @case ('error') {
+          <p class="error" role="alert">History unavailable.</p>
+        }
+        @default {
+          <div class="skeleton-chart" aria-busy="true"></div>
+        }
+      }
+
+      @if (analytics(); as a) {
+        @if (a.state === 'ok') {
+          <h3>Remaining cash flows</h3>
+          <div class="table-wrap scroll-y">
+            <table class="data">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th class="num">Amount</th>
+                  <th class="num">Years</th>
+                  <th class="num">Discount factor</th>
+                  <th class="num">PV</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (cf of a.data.cash_flows; track cf.date + cf.kind) {
+                  <tr>
+                    <td>{{ cf.date }}</td>
+                    <td>{{ cf.kind }}</td>
+                    <td class="num">{{ fmt(cf.amount, 4) }}</td>
+                    <td class="num">{{ fmt(cf.time_years, 3) }}</td>
+                    <td class="num">{{ fmt(cf.discount_factor, 6) }}</td>
+                    <td class="num">{{ fmt(cf.present_value, 4) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <p class="muted small">
+            Discounted on the bootstrapped Treasury zero curve plus the bond's Z-spread. PVs sum to
+            the dirty price.
+          </p>
+        }
+      }
+    }
+  </section>
+
+  <!-- Curve context / inspector panel -->
+  <aside class="panel tpanel" aria-labelledby="ctx-h">
+    <h2 id="ctx-h">Curve context</h2>
+    @switch (curve()?.state) {
+      @case ('ok') {
+        <bm-chart
+          [option]="curveOption()"
+          title="Treasury par curve and bond YTM"
+          filename="bondmind-curve-context"
+          [height]="260"
+        />
+        @if (curve(); as c) {
+          @if (c.state === 'ok') {
+            <p class="muted small">
+              Source: {{ c.data.vintage.source }} · observed
+              {{ c.data.observations[0].observed_date }}
+              <span class="tag">real data</span>
+            </p>
+          }
+        }
+      }
+      @case ('error') {
+        <p class="error" role="alert">Curve unavailable.</p>
+      }
+      @case ('loading') {
+        <div class="skeleton-chart" aria-busy="true"></div>
+      }
+      @default {
+        <p class="muted">Select a security to place it on the curve.</p>
+      }
+    }
+
+    @if (analytics(); as a) {
+      @if (a.state === 'ok') {
+        <a
+          class="button primary block"
+          [routerLink]="['/curve-lab']"
+          [queryParams]="{ security: a.data.security_id }"
+        >
+          Shock the curve in Curve Lab →
+        </a>
+        @if (a.data.warnings.length) {
+          <ul class="warnings">
+            @for (w of a.data.warnings; track w) {
+              <li>⚠ {{ w }}</li>
+            }
+          </ul>
+        }
+        <details>
+          <summary>Calculation assumptions</summary>
+          <dl class="terms small">
+            @for (kv of entries(a.data.assumptions); track kv[0]) {
+              <dt>{{ kv[0] }}</dt>
+              <dd>{{ kv[1] }}</dd>
+            }
+          </dl>
+        </details>
+      }
+    }
+  </aside>
+</div>
+
+<footer class="status-strip" role="contentinfo">
+  @if (analytics(); as a) {
+    @if (a.state === 'ok') {
+      <span>Quote {{ a.data.quote.source }} · {{ a.data.quote.as_of }}</span>
+      <span>Engine {{ a.data.engine_version }}</span>
+      <span>Calculated {{ a.data.calculated_at.slice(11, 19) }} UTC</span>
+    }
+  }
+  <span>Research tool. Not investment advice.</span>
+</footer>

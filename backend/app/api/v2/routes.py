@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.analytics.curve import ENGINE_VERSION
 from app.api.errors import ApiError
 from app.db.session import get_db
-from app.models import CurvePoint
+from app.models import CurvePoint, MarketQuote
 from app.schemas.v2 import (
     CurveDatesResponse,
     CurveObservationSet,
@@ -118,6 +118,32 @@ def security_analytics(
     result = _wrap(an.security_analytics, db, security_id, as_of, curve_id)
     result["calculated_at"] = datetime.now(UTC)
     return result
+
+
+@router.get("/securities/{security_id}/history", tags=["v2 securities"])
+def security_history(
+    security_id: str,
+    start: date | None = Query(None, alias="from"),
+    end: date | None = Query(None, alias="to"),
+    db: Session = Depends(get_db),
+) -> dict:
+    sec = _wrap(an.security_or_404, db, security_id)
+    stmt = select(MarketQuote.as_of, MarketQuote.mid_price, MarketQuote.mid_yield_pct).where(
+        MarketQuote.security_id == security_id
+    )
+    if start:
+        stmt = stmt.where(MarketQuote.as_of >= start)
+    if end:
+        stmt = stmt.where(MarketQuote.as_of <= end)
+    rows = db.execute(stmt.order_by(MarketQuote.as_of)).all()
+    return {
+        "security_id": security_id,
+        "is_synthetic": sec.is_synthetic,
+        "units": {"mid_price": "clean, per 100 face", "mid_yield_pct": "percent"},
+        "points": [
+            {"as_of": d, "mid_price": float(p), "mid_yield_pct": float(y)} for d, p, y in rows
+        ],
+    }
 
 
 @router.post("/scenarios/evaluate", tags=["v2 scenarios"])

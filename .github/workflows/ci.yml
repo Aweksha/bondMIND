@@ -73,5 +73,22 @@ jobs:
       - run: docker compose up -d --build --wait
       - run: curl -fsS http://localhost:8080/api/v1/health
       - run: curl -fsS http://localhost:8080/ | grep -q "bondMIND"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: End-to-end tests (Playwright)
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: frontend/test-results
+          retention-days: 7
       - if: always()
         run: docker compose logs && docker compose down -v

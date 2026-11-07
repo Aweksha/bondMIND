@@ -223,9 +223,9 @@ def security_analytics(db: Session, security_id: str, as_of: date | None, curve_
         "quote": {
             "as_of": quote.as_of,
             "source": quote.source,
-            "bid": quote.bid_price,
-            "ask": quote.ask_price,
-            "mid_clean": quote.mid_price,
+            "bid": float(quote.bid_price),
+            "ask": float(quote.ask_price),
+            "mid_clean": float(quote.mid_price),
         },
         "pricing": {"clean": clean, "dirty": dirty, "accrued": ai, "ytm_pct": ytm * 100},
         "yield_risk": {

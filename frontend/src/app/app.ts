@@ -41,12 +41,13 @@ interface NavItem {
 export class App {
   protected readonly nav: NavItem[] = [
     { path: '/overview', label: 'Overview' },
+    { path: '/terminal', label: 'Terminal' },
+    { path: '/curve-lab', label: 'Curve Lab' },
     { path: '/screener', label: 'Screener' },
-    { path: '/curves', label: 'Yield Curves', milestone: 'M1' },
-    { path: '/signals', label: 'AI Signals', milestone: 'M2' },
-    { path: '/credit', label: 'Credit Intelligence', milestone: 'M2' },
-    { path: '/watchlists', label: 'Watchlists', milestone: 'M3' },
-    { path: '/portfolio', label: 'Portfolio Lab', milestone: 'M3' },
+    { path: '/signals', label: 'AI Signals', milestone: 'later' },
+    { path: '/credit', label: 'Credit Intelligence', milestone: 'later' },
+    { path: '/watchlists', label: 'Watchlists', milestone: 'later' },
+    { path: '/portfolio', label: 'Portfolio Lab', milestone: 'later' },
     { path: '/data', label: 'Data / Models' },
   ];
 }

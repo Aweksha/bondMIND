@@ -4,17 +4,24 @@ import { Observable, catchError, throwError } from 'rxjs';
 
 import {
   ApiErrorBody,
+  CurveDates,
+  CurveObservations,
   DataQualityReport,
   MarketOverview,
   Page,
+  ScenarioRequest,
+  ScenarioResponse,
+  SecurityAnalytics,
   SecurityDetail,
   SecurityFilters,
+  SecurityHistory,
   SecuritySummary,
 } from './api.models';
 
-const BASE = '/api/v1';
+const V1 = '/api/v1';
+const V2 = '/api/v2';
 
-function toParams(filters: object): HttpParams {
+export function toParams(filters: object): HttpParams {
   let params = new HttpParams();
   for (const [key, value] of Object.entries(filters)) {
     if (value === undefined || value === null || value === '') continue;
@@ -41,25 +48,54 @@ function toApiError(err: HttpErrorResponse): Observable<never> {
 export class ApiService {
   private readonly http = inject(HttpClient);
 
-  overview(currency = 'USD') {
+  private get<T>(url: string, params?: object) {
     return this.http
-      .get<MarketOverview>(`${BASE}/market/overview`, { params: { currency } })
+      .get<T>(url, { params: params ? toParams(params) : undefined })
       .pipe(catchError(toApiError));
+  }
+
+  overview(currency = 'USD') {
+    return this.get<MarketOverview>(`${V1}/market/overview`, { currency });
   }
 
   securities(filters: SecurityFilters) {
-    return this.http
-      .get<Page<SecuritySummary>>(`${BASE}/securities`, { params: toParams(filters) })
-      .pipe(catchError(toApiError));
+    return this.get<Page<SecuritySummary>>(`${V1}/securities`, filters);
   }
 
   security(id: string) {
-    return this.http
-      .get<SecurityDetail>(`${BASE}/securities/${encodeURIComponent(id)}`)
-      .pipe(catchError(toApiError));
+    return this.get<SecurityDetail>(`${V1}/securities/${encodeURIComponent(id)}`);
   }
 
   dataQuality() {
-    return this.http.get<DataQualityReport>(`${BASE}/data-quality`).pipe(catchError(toApiError));
+    return this.get<DataQualityReport>(`${V1}/data-quality`);
+  }
+
+  analytics(id: string, asOf?: string) {
+    return this.get<SecurityAnalytics>(`${V2}/securities/${encodeURIComponent(id)}/analytics`, {
+      asOf,
+    });
+  }
+
+  history(id: string, from?: string) {
+    return this.get<SecurityHistory>(`${V2}/securities/${encodeURIComponent(id)}/history`, {
+      from,
+    });
+  }
+
+  curveDates(curveId: string) {
+    return this.get<CurveDates>(`${V2}/curves/${encodeURIComponent(curveId)}/dates`);
+  }
+
+  observations(curveId: string, dates: string[], tenors?: number[]) {
+    return this.get<CurveObservations>(`${V2}/curves/${encodeURIComponent(curveId)}/observations`, {
+      dates,
+      tenors,
+    });
+  }
+
+  evaluate(req: ScenarioRequest) {
+    return this.http
+      .post<ScenarioResponse>(`${V2}/scenarios/evaluate`, req)
+      .pipe(catchError(toApiError));
   }
 }

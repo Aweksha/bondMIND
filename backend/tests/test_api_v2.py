@@ -146,3 +146,22 @@ def test_partial_failure_does_not_fail_other_securities(client, session_factory)
     assert errors == {"BM-CALL-1": "unsupported_instrument", "NOPE": "not_found"}
     r = client.get("/api/v2/securities/BM-CALL-1/analytics")
     assert r.status_code == 422 and r.json()["code"] == "unsupported_instrument"
+
+
+def test_security_history(client):
+    body = client.get(
+        "/api/v2/securities/BM-C-0001/history", params={"from": "2026-10-01", "to": "2026-10-31"}
+    ).json()
+    dates = [p["as_of"] for p in body["points"]]
+    assert dates == sorted(dates) and dates[0] >= "2026-10-01" and dates[-1] <= "2026-10-31"
+    assert body["is_synthetic"] is True
+    assert client.get("/api/v2/securities/NOPE/history").status_code == 404
+
+
+def test_analytics_numbers_are_json_numbers(client):
+    """Prices must serialise as numbers, never strings (the UI refuses to show strings)."""
+    a = client.get("/api/v2/securities/BM-C-0001/analytics").json()
+    for section in ("quote", "pricing", "yield_risk", "curve_risk"):
+        for k, v in a[section].items():
+            if k not in ("as_of", "source"):
+                assert isinstance(v, int | float), f"{section}.{k} is {type(v).__name__}"

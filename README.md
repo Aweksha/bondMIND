@@ -134,9 +134,32 @@ still price.
 with quality quarantine, CI, and OpenAPI docs. The UI has the shell, Overview, Screener
 (filters, sorting, pagination, CSV export), a basic Security page, and Data / Models.
 
-**Stage 2 (Requirements 2.0), in progress:** done so far are S2-C (the pricing engine and
-golden tests), S2-B (the real Treasury curve, observations and overlays API) and the
-scenario engine API. Next come S2-A/S2-D (the interactive terminal and Curve Lab UI),
-then S2-E (accounts, saved workspaces and scenarios) and S2-F (hardening).
+**Stage 2 (Requirements 2.0), in progress:**
+- Done: S2-C (pricing engine and golden tests), S2-B (real Treasury curve and overlays),
+  S2-A (Terminal) and S2-D (Curve Lab).
+- Next: S2-E (accounts, saved workspaces and scenarios), then S2-F (hardening).
+
+### Terminal (`/terminal`)
+Search with `/`, select a bond, and the detail and curve-context panels update. Each panel
+loads and fails on its own, and a new selection cancels requests still in flight. The
+detail panel shows prices, YTM, durations, convexity, signed DV01, Z/G-spread, history
+(yield or price, 3M–All, zoom) and discounted cash flows.
+
+### Curve Lab (`/curve-lab`)
+- Overlay up to 3 historical dates on the real Treasury curve. Missing tenors show as gaps
+  and "n/a", never zero.
+- Apply a parallel (±300bp slider or exact value), twist (2Y/10Y) or key-rate shock, and
+  hold or shock the credit spread.
+- The shocked curve previews instantly. Official prices come from the server and are
+  marked "updating…" until they arrive.
+- The view (bond, dates, shock) is kept in the URL, so you can share or bookmark it.
+- Export the curve table as CSV, the full scenario with its assumptions as JSON, and any
+  chart as PNG.
+
+### Tests
+- `make test`: backend (pytest, QuantLib golden cases) and frontend unit tests (vitest).
+- `make e2e`: Playwright browser tests against the running stack. They cover search to
+  detail, overlay gaps, shock and reset, input clamping, out-of-order responses (the latest
+  action wins), and a failed valuation leaving the charts intact.
 
 The full scope is defined in the bondMIND AI SRS/PRD, v1.0, and the Requirements 2.0 addendum (7 November 2026).
