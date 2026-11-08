@@ -15,35 +15,37 @@ import { StatusBadge } from '../../core/status-badge';
     } @else if (report(); as r) {
       <section class="panel" aria-labelledby="ing-h">
         <h2 id="ing-h">Ingestion and freshness</h2>
-        <table class="data">
-          <thead>
-            <tr>
-              <th>Dataset</th>
-              <th class="num">Loaded</th>
-              <th class="num">Rejected</th>
-              <th>Last as-of</th>
-              <th>Loaded at</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (f of r.freshness; track f.dataset) {
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
               <tr>
-                <td>
-                  {{ f.dataset }}
-                  @if (f.is_synthetic) {
-                    <span class="tag">synthetic</span>
-                  }
-                </td>
-                <td class="num">{{ f.rows_loaded }}</td>
-                <td class="num">{{ f.rows_rejected }}</td>
-                <td>{{ f.last_as_of ?? '—' }}</td>
-                <td>{{ f.last_loaded_at | date: 'short' }}</td>
-                <td><bm-status [status]="f.status" /></td>
+                <th>Dataset</th>
+                <th class="num">Loaded</th>
+                <th class="num">Rejected</th>
+                <th>Last as-of</th>
+                <th>Loaded at</th>
+                <th>Status</th>
               </tr>
-            }
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              @for (f of r.freshness; track f.dataset) {
+                <tr>
+                  <td>
+                    {{ f.dataset }}
+                    @if (f.is_synthetic) {
+                      <span class="tag">synthetic</span>
+                    }
+                  </td>
+                  <td class="num">{{ f.rows_loaded }}</td>
+                  <td class="num">{{ f.rows_rejected }}</td>
+                  <td>{{ f.last_as_of ?? '—' }}</td>
+                  <td>{{ f.last_loaded_at | date: 'short' }}</td>
+                  <td><bm-status [status]="f.status" /></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section class="panel" aria-labelledby="q-h">
@@ -58,28 +60,30 @@ import { StatusBadge } from '../../core/status-badge';
             <span class="muted">No issues.</span>
           }
         </p>
-        <table class="data">
-          <thead>
-            <tr>
-              <th>Dataset</th>
-              <th>Rule</th>
-              <th>Message</th>
-              <th>Raw record</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (i of r.recent_issues; track i.id) {
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
               <tr>
-                <td>{{ i.dataset }}</td>
-                <td>{{ i.rule }}</td>
-                <td>{{ i.message }}</td>
-                <td>
-                  <code class="raw">{{ i.raw_record | json }}</code>
-                </td>
+                <th>Dataset</th>
+                <th>Rule</th>
+                <th>Message</th>
+                <th>Raw record</th>
               </tr>
-            }
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              @for (i of r.recent_issues; track i.id) {
+                <tr>
+                  <td>{{ i.dataset }}</td>
+                  <td>{{ i.rule }}</td>
+                  <td>{{ i.message }}</td>
+                  <td>
+                    <code class="raw">{{ i.raw_record | json }}</code>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section class="panel">

@@ -1,0 +1,186 @@
+<a class="back" [routerLink]="['/bonds']" [queryParams]="memory.lastQuery()">← Bond Explorer</a>
+
+@switch (analytics().state) {
+  @case ('error') {
+    @if (analytics(); as a) {
+      @if (a.state === 'error') {
+        <div class="card error" role="alert">
+          <strong>{{ id() }}:</strong> {{ a.error.message }}
+          <div class="muted small">
+            No figures are shown rather than guessing ({{ a.error.code }}).
+          </div>
+        </div>
+      }
+    }
+  }
+  @case ('loading') {
+    <h1>{{ id() }}</h1>
+    <div class="skeleton-tiles" aria-busy="true">
+      <span></span><span></span><span></span><span></span>
+    </div>
+  }
+  @case ('ok') {
+    @if (analytics(); as a) {
+      @if (a.state === 'ok') {
+        <div class="page-title">
+          <div>
+            <h1>
+              {{ title() ?? a.data.security_id }}
+              @if (a.data.is_synthetic) {
+                <span class="tag">synthetic</span>
+              }
+            </h1>
+            @if (info(); as i) {
+              @if (i.state === 'ok') {
+                <p class="muted">
+                  {{ i.data.id }} · {{ i.data.issuer_name }} · {{ i.data.sector }} ·
+                  {{
+                    i.data.rating ??
+                      (i.data.bond_type === 'treasury' ? 'U.S. Treasury' : 'Not rated')
+                  }}
+                  · {{ fmt(i.data.coupon_rate, 3) }}% coupon · matures {{ i.data.maturity_date }}
+                </p>
+              }
+            }
+          </div>
+          <a
+            class="btn-primary"
+            [routerLink]="['/simulator']"
+            [queryParams]="{ bond: a.data.security_id }"
+          >
+            Simulate a yield change →
+          </a>
+        </div>
+
+        <section class="kpis" aria-label="Key figures">
+          <div class="kpi">
+            <span>Price (clean)</span><b>{{ fmt(a.data.pricing.clean, 3) }}</b
+            ><small>bid {{ fmt(a.data.quote.bid, 2) }} · ask {{ fmt(a.data.quote.ask, 2) }}</small>
+          </div>
+          <div class="kpi">
+            <span>Yield to maturity</span><b>{{ fmt(a.data.pricing.ytm_pct, 3) }}%</b
+            ><small>as of {{ a.data.as_of }}</small>
+          </div>
+          <div class="kpi">
+            <span>Modified duration</span><b>{{ fmt(a.data.yield_risk.modified_duration, 2) }}</b
+            ><small>years</small>
+          </div>
+          <div class="kpi" title="Signed change in price per 100 face for a +1bp rise in yield">
+            <span>DV01</span><b>{{ fmt(a.data.curve_risk.dv01, 4) }}</b
+            ><small>per 100, for +1bp</small>
+          </div>
+          <div class="kpi">
+            <span>Spread to Treasuries</span><b>{{ fmt(a.data.curve_risk.g_spread_bp, 0) }} bp</b
+            ><small>Z-spread {{ fmt(a.data.curve_risk.z_spread_bp, 0) }} bp</small>
+          </div>
+          <div class="kpi">
+            <span>Convexity</span><b>{{ fmt(a.data.yield_risk.convexity, 1) }}</b
+            ><small>accrued {{ fmt(a.data.pricing.accrued, 3) }}</small>
+          </div>
+        </section>
+
+        <div class="detail-grid">
+          <section class="card">
+            <div class="card-head">
+              <h2>Price history</h2>
+              <div class="seg" role="group" aria-label="Metric">
+                <button
+                  type="button"
+                  [class.on]="metric() === 'yield'"
+                  (click)="metric.set('yield')"
+                >
+                  Yield
+                </button>
+                <button
+                  type="button"
+                  [class.on]="metric() === 'price'"
+                  (click)="metric.set('price')"
+                >
+                  Price
+                </button>
+              </div>
+              <div class="seg" role="group" aria-label="Range">
+                @for (r of ranges; track r) {
+                  <button type="button" [class.on]="range() === r" (click)="range.set(r)">
+                    {{ r }}
+                  </button>
+                }
+              </div>
+            </div>
+            @if (history().state === 'ok') {
+              <bm-chart
+                [option]="historyOption()"
+                [title]="''"
+                [filename]="'bondmind-' + id() + '-history'"
+                [height]="260"
+              />
+            } @else if (history().state === 'error') {
+              <p class="error" role="alert">History unavailable.</p>
+            } @else {
+              <div class="skeleton-chart" aria-busy="true"></div>
+            }
+          </section>
+
+          <section class="card">
+            <div class="card-head"><h2>Where it sits on the curve</h2></div>
+            @if (curve()?.state === 'ok') {
+              <bm-chart
+                [option]="curveOption()"
+                [title]="''"
+                filename="bondmind-curve-position"
+                [height]="260"
+              />
+              <p class="muted small">
+                The gap above the Treasury curve is the extra yield investors want for this issuer's
+                credit risk.
+              </p>
+            } @else {
+              <div class="skeleton-chart" aria-busy="true"></div>
+            }
+          </section>
+        </div>
+
+        <section class="card">
+          <div class="card-head"><h2>Remaining cash flows</h2></div>
+          <div class="table-wrap scroll-y">
+            <table class="data">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th class="num">Amount</th>
+                  <th class="num">Discount factor</th>
+                  <th class="num">Present value</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (cf of a.data.cash_flows; track cf.date + cf.kind) {
+                  <tr>
+                    <td>{{ cf.date }}</td>
+                    <td>{{ cf.kind }}</td>
+                    <td class="num">{{ fmt(cf.amount, 3) }}</td>
+                    <td class="num">{{ fmt(cf.discount_factor, 5) }}</td>
+                    <td class="num">{{ fmt(cf.present_value, 3) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <p class="muted small">
+            Per 100 face. Present values add up to the full (dirty) price of
+            {{ fmt(a.data.pricing.dirty, 3) }}.
+          </p>
+          <details>
+            <summary>How these numbers are calculated</summary>
+            <dl class="terms small">
+              @for (kv of entries(a.data.assumptions); track kv[0]) {
+                <dt>{{ kv[0] }}</dt>
+                <dd>{{ kv[1] }}</dd>
+              }
+            </dl>
+          </details>
+        </section>
+      }
+    }
+  }
+}

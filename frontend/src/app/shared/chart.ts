@@ -76,17 +76,19 @@ function themed(option: ChartOption): ChartOption {
 @Component({
   selector: 'bm-chart',
   template: `
-    <div class="chart-head">
-      <span class="chart-title">{{ title() }}</span>
-      <button
-        type="button"
-        class="ghost"
-        (click)="exportPng()"
-        [attr.aria-label]="'Export ' + title() + ' as PNG'"
-      >
-        PNG
-      </button>
-    </div>
+    @if (showHeader()) {
+      <div class="chart-head">
+        <span class="chart-title">{{ title() }}</span>
+        <button
+          type="button"
+          class="ghost"
+          (click)="exportPng()"
+          [attr.aria-label]="'Export ' + title() + ' as PNG'"
+        >
+          PNG
+        </button>
+      </div>
+    }
     <div
       #host
       class="chart"
@@ -102,6 +104,7 @@ export class Chart {
   readonly ariaLabel = input('Chart. See the table below for the same data.');
   readonly height = input(280);
   readonly filename = input('bondmind-chart');
+  readonly showHeader = input(true);
 
   private readonly host = viewChild.required<ElementRef<HTMLDivElement>>('host');
   private chart?: echarts.ECharts;

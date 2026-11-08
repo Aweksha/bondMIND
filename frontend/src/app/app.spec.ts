@@ -12,21 +12,21 @@ describe('App shell', () => {
     }).compileComponents();
   });
 
-  it('labels synthetic and real data sources', async () => {
+  it('labels synthetic and real data sources and the disclaimer', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
-    const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('.env-badge')?.textContent).toContain('Synthetic bonds');
-    expect(el.textContent).toContain('Not investment advice');
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('synthetic');
+    expect(text).toContain('real');
+    expect(text).toContain('Not investment advice');
   });
 
-  it('renders the spec navigation', async () => {
+  it('has exactly the three feature tabs', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
-    const labels = [...(fixture.nativeElement as HTMLElement).querySelectorAll('nav a')].map((a) =>
-      a.textContent?.trim(),
+    const labels = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.tabs a')].map(
+      (a) => a.textContent?.trim(),
     );
-    expect(labels.some((l) => l?.startsWith('Screener'))).toBe(true);
-    expect(labels.some((l) => l?.startsWith('Portfolio Lab'))).toBe(true);
+    expect(labels).toEqual(['Bond Explorer', 'Yield Curve', 'Price Simulator']);
   });
 });

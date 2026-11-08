@@ -23,6 +23,12 @@ export function shiftDate(iso: string, { years = 0, months = 0 } = {}): string {
   return isoDate(d);
 }
 
+export function shiftDays(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return isoDate(d);
+}
+
 /** Safe export filename: letters, digits, dash, underscore, dot only. */
 export function safeFilename(name: string): string {
   return name.replace(/[^A-Za-z0-9._-]+/g, '-').slice(0, 80);

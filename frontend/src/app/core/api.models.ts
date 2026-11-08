@@ -269,3 +269,80 @@ export interface ScenarioResponse {
   request_id: string | null;
   disclaimer: string;
 }
+
+// ---- Public features: explorer, yield curve, simulator -------------------------------
+
+export interface BondRow extends SecuritySummary {
+  years: number | null;
+  modified_duration: number | null;
+  g_spread_bp: number | null;
+}
+
+export interface BondList {
+  items: BondRow[];
+  total: number;
+  page: number;
+  page_size: number;
+  stats: {
+    count: number;
+    avg_ytm_pct: number | null;
+    avg_modified_duration: number | null;
+    avg_g_spread_bp: number | null;
+    avg_coupon_pct: number | null;
+  };
+  facets: {
+    sectors: string[];
+    ratings: string[];
+    maturity_buckets: string[];
+    bond_types: string[];
+  };
+  as_of: string | null;
+  is_synthetic: boolean;
+}
+
+export interface BondQuery {
+  q?: string;
+  bond_type?: string;
+  sector?: string;
+  rating?: string;
+  maturity?: string;
+  sort?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface CurveSeries {
+  curve_id: string;
+  dates: string[];
+  series: Record<string, (number | null)[]>;
+  units: string;
+}
+
+export interface PriceYieldPoint {
+  shift_bp: number;
+  ytm_pct: number;
+  clean: number;
+  duration_estimate: number;
+  convexity_estimate: number;
+}
+
+export interface PriceYield {
+  security_id: string;
+  name: string;
+  is_synthetic: boolean;
+  as_of: string;
+  coupon_pct: number;
+  maturity_date: string;
+  base: {
+    ytm_pct: number;
+    clean: number;
+    dirty: number;
+    accrued: number;
+    modified_duration: number;
+    macaulay_duration: number;
+    convexity: number;
+    dv01: number;
+  };
+  points: PriceYieldPoint[];
+  method: Record<string, string>;
+}

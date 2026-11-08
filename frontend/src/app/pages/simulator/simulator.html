@@ -1,0 +1,187 @@
+<div class="page-title">
+  <div>
+    <h1>Bond Price Simulator</h1>
+    <p class="muted">Pick a bond, move its yield, and see how much the price changes and why.</p>
+  </div>
+</div>
+
+<div class="sim-grid">
+  <section class="card sim-controls" aria-label="Simulator controls">
+    <label class="field">
+      <span>Bond</span>
+      <select (change)="setBond($any($event.target).value)">
+        <optgroup label="Treasuries (synthetic terms)">
+          @for (b of treasuries(); track b.id) {
+            <option [value]="b.id" [selected]="b.id === bondId()">
+              {{ b.id }} · {{ b.coupon_rate }}% · {{ b.maturity_date.slice(0, 4) }}
+            </option>
+          }
+        </optgroup>
+        <optgroup label="Corporates (synthetic)">
+          @for (b of corporates(); track b.id) {
+            <option [value]="b.id" [selected]="b.id === bondId()">
+              {{ b.id }} · {{ b.issuer_name }} · {{ b.maturity_date.slice(0, 4) }}
+            </option>
+          }
+        </optgroup>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Change in yield</span>
+      <div class="big-shift" aria-live="polite">
+        {{ signed(shift(), 0) }} bp
+        <small class="muted">({{ signed(shift() / 100, 2) }} percentage points)</small>
+      </div>
+      <input
+        type="range"
+        [min]="-limit"
+        [max]="limit"
+        step="1"
+        [value]="shift()"
+        aria-label="Change in yield in basis points"
+        (input)="setShift($any($event.target).value)"
+      />
+      <div class="range-ends muted small">
+        <span>−300 bp</span><span>0</span><span>+300 bp</span>
+      </div>
+    </label>
+    <div class="chips">
+      @for (p of presets; track p) {
+        <button type="button" [class.on]="shift() === p" (click)="setShift(p)">
+          {{ signed(p, 0) }}
+        </button>
+      }
+      <button type="button" (click)="setShift(0)">Reset</button>
+    </div>
+    <label class="field inline">
+      <span>Exact value (bp)</span>
+      <input
+        type="number"
+        class="bp-input"
+        [min]="-limit"
+        [max]="limit"
+        [value]="shift()"
+        (change)="setShift($any($event.target).value)"
+      />
+    </label>
+
+    <fieldset class="field">
+      <legend>Show on chart</legend>
+      <label class="check"
+        ><input
+          type="checkbox"
+          [checked]="showDuration()"
+          (change)="showDuration.set(!showDuration())"
+        />
+        Duration estimate (straight line)</label
+      >
+      <label class="check"
+        ><input
+          type="checkbox"
+          [checked]="showConvexity()"
+          (change)="showConvexity.set(!showConvexity())"
+        />
+        Duration + convexity estimate</label
+      >
+    </fieldset>
+
+    @if (data(); as d) {
+      <dl class="facts small">
+        <dt>Coupon</dt>
+        <dd>{{ fmt(d.coupon_pct, 3) }}%</dd>
+        <dt>Matures</dt>
+        <dd>{{ d.maturity_date }}</dd>
+        <dt>Modified duration</dt>
+        <dd>{{ fmt(d.base.modified_duration, 2) }} yrs</dd>
+        <dt>Convexity</dt>
+        <dd>{{ fmt(d.base.convexity, 1) }}</dd>
+        <dt>Price as of</dt>
+        <dd>{{ d.as_of }}</dd>
+      </dl>
+      <a class="link-soft" [routerLink]="['/bonds', d.security_id]">Bond details →</a>
+    }
+  </section>
+
+  <section class="sim-main">
+    @if (curve()?.state === 'error') {
+      @if (curve(); as c) {
+        @if (c.state === 'error') {
+          <div class="card error" role="alert">{{ c.error.message }}</div>
+        }
+      }
+    }
+    @if (data(); as d) {
+      @if (result(); as r) {
+        <div class="sim-cards">
+          <div class="kpi">
+            <span>Yield</span>
+            <b>{{ fmt(d.base.ytm_pct, 2) }}% → {{ fmt(point()!.ytm_pct, 2) }}%</b>
+            <small>{{ signed(shift(), 0) }} bp</small>
+          </div>
+          <div class="kpi">
+            <span>Price</span>
+            <b>{{ fmt(d.base.clean, 2) }} → {{ fmt(point()!.clean, 2) }}</b>
+            <small [class.neg]="r.change < 0" [class.pos]="r.change > 0"
+              >{{ signed(r.change, 2) }} ({{ signed(r.pct, 2) }}%)</small
+            >
+          </div>
+          <div class="kpi">
+            <span>Duration estimate</span>
+            <b>{{ fmt(point()!.duration_estimate, 2) }}</b>
+            <small>off by {{ signed(r.durError, 3) }}</small>
+          </div>
+          <div class="kpi">
+            <span>+ convexity estimate</span>
+            <b>{{ fmt(point()!.convexity_estimate, 2) }}</b>
+            <small>off by {{ signed(r.convError, 3) }}</small>
+          </div>
+        </div>
+      }
+      <div class="card">
+        <bm-chart
+          [option]="option()"
+          title="Price vs. yield"
+          [filename]="'bondmind-price-yield-' + d.security_id"
+          [height]="420"
+          ariaLabel="Price-yield curve. The cards above give the same numbers."
+        />
+        @if (d.is_synthetic) {
+          <p class="muted small">
+            Synthetic bond with real-curve-based pricing. Prices are exact for the chosen yield;
+            estimates use duration and convexity at today's yield.
+          </p>
+        }
+      </div>
+    } @else if (curve()?.state !== 'error') {
+      <div class="skeleton-chart" aria-busy="true" style="height: 480px"></div>
+    }
+
+    <section class="card explain">
+      <h2>What am I looking at?</h2>
+      <div class="explain-grid">
+        <div>
+          <h3>The blue curve: actual price</h3>
+          <p>
+            A bond's price is the value today of all its future payments. When yields rise, those
+            payments are worth less, so the price falls. When yields fall, the price rises.
+          </p>
+        </div>
+        <div>
+          <h3>The straight line: duration</h3>
+          <p>
+            Duration is the slope at today's yield. It says roughly how much the price moves per 1%
+            change in yield. A duration of 6 means about a 6% price change for a 1% (100 bp) move.
+          </p>
+        </div>
+        <div>
+          <h3>The red gap: convexity</h3>
+          <p>
+            The real curve bends, so the straight line always undershoots. The red gap is that
+            error. It grows with bigger moves. Adding convexity, the bend, closes most of the gap.
+          </p>
+        </div>
+      </div>
+    </section>
+  </section>
+</div>

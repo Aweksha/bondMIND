@@ -4,6 +4,10 @@ import { Observable, catchError, throwError } from 'rxjs';
 
 import {
   ApiErrorBody,
+  BondList,
+  BondQuery,
+  CurveSeries,
+  PriceYield,
   CurveDates,
   CurveObservations,
   DataQualityReport,
@@ -90,6 +94,25 @@ export class ApiService {
     return this.get<CurveObservations>(`${V2}/curves/${encodeURIComponent(curveId)}/observations`, {
       dates,
       tenors,
+    });
+  }
+
+  bonds(query: BondQuery) {
+    return this.get<BondList>(`${V2}/bonds`, query);
+  }
+
+  curveSeries(curveId: string, tenors: number[], from?: string, to?: string) {
+    return this.get<CurveSeries>(`${V2}/curves/${encodeURIComponent(curveId)}/series`, {
+      tenors,
+      from,
+      to,
+    });
+  }
+
+  priceYield(id: string) {
+    return this.get<PriceYield>(`${V2}/securities/${encodeURIComponent(id)}/price-yield`, {
+      range_bp: 300,
+      step_bp: 1,
     });
   }
 

@@ -1,0 +1,204 @@
+<div class="page-title">
+  <div>
+    <h1>Bond Explorer</h1>
+    <p class="muted">Filter the bond universe, sort any column, and open a bond for its details.</p>
+  </div>
+</div>
+
+@if (view(); as v) {
+  <section class="filterbar card" aria-label="Filters">
+    <div class="filter-row">
+      @for (k of filterKeys; track k) {
+        <label class="select-pill">
+          <span>{{ labels[k] }}</span>
+          <select [value]="params()[k] ?? ''" (change)="setFilter(k, $any($event.target).value)">
+            <option value="">All</option>
+            @switch (k) {
+              @case ('bond_type') {
+                @for (o of v.facets.bond_types; track o) {
+                  <option [value]="o" [selected]="params()[k] === o">{{ label(k, o) }}</option>
+                }
+              }
+              @case ('sector') {
+                @for (o of v.facets.sectors; track o) {
+                  <option [value]="o" [selected]="params()[k] === o">{{ o }}</option>
+                }
+              }
+              @case ('rating') {
+                @for (o of v.facets.ratings; track o) {
+                  <option [value]="o" [selected]="params()[k] === o">{{ o }}</option>
+                }
+              }
+              @case ('maturity') {
+                @for (o of v.facets.maturity_buckets; track o) {
+                  <option [value]="o" [selected]="params()[k] === o">{{ o }}</option>
+                }
+              }
+            }
+          </select>
+        </label>
+      }
+      <div class="filter-actions">
+        <button type="button" class="btn-soft" (click)="clearAll()">Reset</button>
+        <button type="button" class="btn-soft" (click)="exportCsv()">Export CSV</button>
+      </div>
+    </div>
+    <div class="filter-row">
+      <input
+        class="search"
+        type="search"
+        placeholder="Search issuer, bond ID, sector…"
+        aria-label="Search bonds"
+        [value]="searchText()"
+        (input)="searchText.set($any($event.target).value)"
+      />
+      @for (c of activeChips(); track c.key) {
+        <span class="chip-active">
+          {{ label(c.key, c.value) }}
+          <button
+            type="button"
+            (click)="setFilter(c.key, '')"
+            [attr.aria-label]="'Remove filter ' + c.value"
+          >
+            ✕
+          </button>
+        </span>
+      }
+    </div>
+  </section>
+
+  <section class="stat-strip" aria-label="Summary of the filtered bonds">
+    <div>
+      <span>Bonds</span><b>{{ v.stats.count }}</b>
+    </div>
+    <div>
+      <span>Avg yield</span><b>{{ fmt(v.stats.avg_ytm_pct, 2) }}%</b>
+    </div>
+    <div>
+      <span>Avg duration</span><b>{{ fmt(v.stats.avg_modified_duration, 2) }} yrs</b>
+    </div>
+    <div>
+      <span>Avg spread</span><b>{{ fmt(v.stats.avg_g_spread_bp, 0) }} bp</b>
+    </div>
+    <div>
+      <span>Avg coupon</span><b>{{ fmt(v.stats.avg_coupon_pct, 2) }}%</b>
+    </div>
+    <div>
+      <span>Quotes as of</span><b>{{ v.as_of }}</b>
+    </div>
+  </section>
+
+  <section class="card table-card" [attr.aria-busy]="loading()">
+    <div class="table-wrap">
+      <table class="data grid-table">
+        <thead>
+          <tr>
+            @for (c of columns; track c.key) {
+              <th
+                scope="col"
+                [class.num]="c.num"
+                [attr.aria-sort]="ariaSort(c.key)"
+                [attr.title]="c.title ?? null"
+              >
+                <button type="button" class="sort" (click)="sortBy(c.key)">
+                  {{ c.label }}
+                  <span aria-hidden="true">{{
+                    ariaSort(c.key) === 'ascending'
+                      ? '▲'
+                      : ariaSort(c.key) === 'descending'
+                        ? '▼'
+                        : ''
+                  }}</span>
+                </button>
+              </th>
+            }
+            <th scope="col"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of v.items; track row.id) {
+            <tr class="clickable" (click)="open(row)">
+              @for (c of columns; track c.key) {
+                <td [class.num]="c.num" [class.missing]="cell(row, c.key) === '—'">
+                  @switch (c.key) {
+                    @case ('id') {
+                      <a [routerLink]="['/bonds', row.id]" (click)="$event.stopPropagation()">{{
+                        row.id
+                      }}</a>
+                    }
+                    @case ('rating') {
+                      <span
+                        class="pill"
+                        [class]="
+                          'pill pill-' +
+                          (
+                            row.rating ?? (row.bond_type === 'treasury' ? 'ust' : 'nr')
+                          ).toLowerCase()
+                        "
+                      >
+                        {{ row.rating ?? (row.bond_type === 'treasury' ? 'UST' : 'NR') }}
+                      </span>
+                    }
+                    @case ('issuer_name') {
+                      <span class="issuer">{{ row.issuer_name }}</span>
+                      <span class="muted small sector">{{ row.sector }}</span>
+                    }
+                    @default {
+                      {{ cell(row, c.key) }}
+                    }
+                  }
+                </td>
+              }
+              <td>
+                <a
+                  class="link-soft"
+                  [routerLink]="['/simulator']"
+                  [queryParams]="{ bond: row.id }"
+                  (click)="$event.stopPropagation()"
+                  [attr.aria-label]="'Simulate price for ' + row.id"
+                  >Simulate →</a
+                >
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td [attr.colspan]="columns.length + 1" class="empty">
+                No bonds match these filters.
+                <button type="button" class="btn-soft" (click)="clearAll()">Clear filters</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <nav class="pager" aria-label="Pagination">
+      <button
+        type="button"
+        class="btn-icon"
+        (click)="goTo(query().page! - 1)"
+        [disabled]="query().page! <= 1"
+        aria-label="Previous page"
+      >
+        ‹
+      </button>
+      <span>{{ query().page }} of {{ pages() }}</span>
+      <button
+        type="button"
+        class="btn-icon"
+        (click)="goTo(query().page! + 1)"
+        [disabled]="query().page! >= pages()"
+        aria-label="Next page"
+      >
+        ›
+      </button>
+    </nav>
+  </section>
+} @else {
+  @if (data(); as d) {
+    @if (d.state === 'error') {
+      <div class="card error" role="alert">Could not load bonds: {{ d.error.message }}</div>
+    } @else {
+      <div class="skeleton-chart" aria-busy="true"></div>
+    }
+  }
+}

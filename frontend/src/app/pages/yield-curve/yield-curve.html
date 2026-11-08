@@ -1,0 +1,163 @@
+<div class="page-title">
+  <div>
+    <h1>Treasury Yield Curve</h1>
+    <p class="muted">
+      Compare the U.S. Treasury par yield curve on any two dates since 2019. Real data from the U.S.
+      Treasury.
+    </p>
+  </div>
+</div>
+
+<section class="card controls-row" aria-label="Dates">
+  <label class="select-pill">
+    <span>Date</span>
+    <input
+      type="date"
+      [min]="minDate()"
+      [max]="maxDate()"
+      [value]="currentDate()"
+      (change)="setDate($any($event.target).value)"
+    />
+  </label>
+  <div class="seg" role="group" aria-label="Compare with">
+    @for (p of presets; track p) {
+      <button
+        type="button"
+        [class.on]="compare() === p"
+        (click)="setCompare(p)"
+        [attr.aria-pressed]="compare() === p"
+      >
+        {{ p }}
+      </button>
+    }
+  </div>
+  <label class="select-pill">
+    <span>vs</span>
+    <input
+      type="date"
+      [min]="minDate()"
+      [max]="maxDate()"
+      [value]="compareDate()"
+      aria-label="Compare date"
+      (change)="setCompare($any($event.target).value)"
+    />
+  </label>
+  <button type="button" class="btn-soft push-right" (click)="exportCsv()">Export CSV</button>
+</section>
+
+@if (obs()?.state === 'error') {
+  <div class="card error" role="alert">Could not load the curve. Try another date.</div>
+}
+
+<section class="tenor-tiles" aria-label="Key Treasury yields">
+  @for (t of tiles(); track t.tenor) {
+    <div class="tile">
+      <span class="tile-label">{{ tenorLabel(t.tenor) }}</span>
+      <b class="tile-value">{{ t.current === null ? '—' : fmt(t.current, 2) + '%' }}</b>
+      <span class="delta" [class.pos]="(t.change ?? 0) > 0" [class.neg]="(t.change ?? 0) < 0">
+        {{
+          t.change === null
+            ? 'n/a'
+            : (t.change > 0 ? '▲ ' : t.change < 0 ? '▼ ' : '') + signed(t.change, 1) + ' bp'
+        }}
+      </span>
+    </div>
+  }
+</section>
+
+<h2 class="section-label">
+  Curve steepness
+  <span class="muted">· spread between two maturities, in bp; sparkline shows the past year</span>
+</h2>
+<section class="spread-cards">
+  @for (s of spreads(); track s.id) {
+    <div class="card spread-card">
+      <div class="spread-top">
+        <div>
+          <span class="tile-label">{{ s.label }}</span>
+          <b class="tile-value">{{ s.now === null ? '—' : signed(s.now, 0) }}<small> bp</small></b>
+          <span class="muted small">{{ s.help }}</span>
+        </div>
+        <span class="delta" [class.pos]="(s.change ?? 0) > 0" [class.neg]="(s.change ?? 0) < 0">
+          {{ s.change === null ? '' : signed(s.change, 1) + ' bp' }}
+        </span>
+      </div>
+      <bm-chart
+        [option]="s.option"
+        [showHeader]="false"
+        [height]="56"
+        [ariaLabel]="s.label + ' over the past year'"
+      />
+      <div class="spread-foot muted small">
+        <span>1Y ago: {{ s.yearAgo === null ? '—' : signed(s.yearAgo, 0) + ' bp' }}</span>
+        <span
+          >Range:
+          {{ s.min === null ? '—' : signed(s.min, 0) + ' → ' + signed(s.max, 0) + ' bp' }}</span
+        >
+      </div>
+    </div>
+  }
+</section>
+
+<div class="curve-grid">
+  <section class="card">
+    <div class="card-head"><h2>Yield curve</h2></div>
+    @if (obs()?.state === 'ok') {
+      <bm-chart
+        [option]="chartOption()"
+        title=""
+        filename="bondmind-yield-curve"
+        [height]="380"
+        ariaLabel="Treasury yield curve on two dates; the table lists the same values"
+      />
+      @for (s of [current(), prior()]; track $index) {
+        @if (s?.status === 'prior_observation') {
+          <p class="muted small">
+            {{ s?.requested_date }} had no data (weekend or holiday), so {{ s?.observed_date }} is
+            shown.
+          </p>
+        } @else if (s?.status === 'unavailable') {
+          <p class="warn small">No data on or just before {{ s?.requested_date }}.</p>
+        }
+      }
+    } @else {
+      <div class="skeleton-chart" aria-busy="true" style="height: 380px"></div>
+    }
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Treasury yields</h2></div>
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Maturity</th>
+            <th class="num">{{ current()?.observed_date ?? 'Current' }}</th>
+            <th class="num">{{ prior()?.observed_date ?? 'Prior' }}</th>
+            <th class="num">Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of rows(); track r.tenor) {
+            <tr>
+              <td>
+                <b>{{ tenorLabel(r.tenor) }}</b>
+              </td>
+              <td class="num">{{ r.current === null ? 'n/a' : fmt(r.current, 2) + '%' }}</td>
+              <td class="num" [class.missing]="r.prior === null">
+                {{ r.prior === null ? 'n/a' : fmt(r.prior, 2) + '%' }}
+              </td>
+              <td class="num" [class.pos]="(r.change ?? 0) > 0" [class.neg]="(r.change ?? 0) < 0">
+                {{ r.change === null ? 'n/a' : signed(r.change, 1) + ' bp' }}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="muted small">
+      “n/a” means that maturity wasn't published on that date (e.g. the 1.5-month bill began in
+      2025). Gaps are never filled in.
+    </p>
+  </section>
+</div>

@@ -16,6 +16,7 @@ from app.schemas.v2 import (
     ScenarioRequest,
 )
 from app.services import analytics as an
+from app.services import explorer as ex
 from app.services import market as mk
 from app.services.scenario import evaluate
 
@@ -106,6 +107,59 @@ def curve_observations(
         vintage=an.curve_vintage(db),
         generated_at=datetime.now(UTC),
     )
+
+
+@router.get("/bonds", tags=["v2 explorer"])
+def bonds(
+    q: str | None = Query(None, max_length=100),
+    bond_type: str | None = Query(None, pattern="^(treasury|corporate)$"),
+    sector: list[str] = Query([], max_length=20),
+    rating: list[str] = Query([], max_length=10),
+    maturity: str | None = Query(None, pattern=r"^(0-3y|3-7y|7-10y|10y\+)$"),
+    min_yield: float | None = Query(None, ge=-5, le=40),
+    max_yield: float | None = Query(None, ge=-5, le=40),
+    sort: str = Query("maturity_date", pattern=r"^-?[a-z_]+$"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> dict:
+    return _wrap(
+        lambda: ex.list_bonds(
+            db,
+            q=q,
+            bond_type=bond_type,
+            sectors=sector,
+            ratings=rating,
+            maturity=maturity,
+            min_yield=min_yield,
+            max_yield=max_yield,
+            sort=sort,
+            page=page,
+            page_size=page_size,
+        )
+    )
+
+
+@router.get("/curves/{curve_id}/series", tags=["v2 curves"])
+def curve_series(
+    curve_id: str,
+    tenors: list[float] = Query(..., min_length=1, max_length=14),
+    start: date | None = Query(None, alias="from"),
+    end: date | None = Query(None, alias="to"),
+    db: Session = Depends(get_db),
+) -> dict:
+    _wrap(an.get_curve, db, curve_id)
+    return ex.curve_series(db, curve_id, tenors, start, end)
+
+
+@router.get("/securities/{security_id}/price-yield", tags=["v2 securities"])
+def price_yield(
+    security_id: str,
+    range_bp: int = Query(300, ge=25, le=500),
+    step_bp: int = Query(5, ge=1, le=50),
+    db: Session = Depends(get_db),
+) -> dict:
+    return _wrap(ex.price_yield, db, security_id, range_bp, step_bp)
 
 
 @router.get("/securities/{security_id}/analytics", tags=["v2 securities"])

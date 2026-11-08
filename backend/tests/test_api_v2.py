@@ -165,3 +165,51 @@ def test_analytics_numbers_are_json_numbers(client):
         for k, v in a[section].items():
             if k not in ("as_of", "source"):
                 assert isinstance(v, int | float), f"{section}.{k} is {type(v).__name__}"
+
+
+def test_bonds_explorer_filters_stats_and_sort(client):
+    body = client.get(
+        "/api/v2/bonds",
+        params={
+            "bond_type": "corporate",
+            "maturity": "3-7y",
+            "sort": "-g_spread_bp",
+            "page_size": 100,
+        },
+    ).json()
+    items = body["items"]
+    assert items and all(i["bond_type"] == "corporate" for i in items)
+    assert all(3 <= i["years"] < 7 for i in items)
+    spreads = [i["g_spread_bp"] for i in items]
+    assert spreads == sorted(spreads, reverse=True)
+    assert body["stats"]["count"] == body["total"] == len(items)
+    assert abs(body["stats"]["avg_g_spread_bp"] - sum(spreads) / len(spreads)) < 1e-6
+    assert "Utilities" in body["facets"]["sectors"]
+    for field in ("coupon_rate", "mid_price", "mid_yield_pct"):
+        assert isinstance(items[0][field], float), field  # numbers, never strings
+    assert client.get("/api/v2/bonds", params={"sort": "bogus"}).json()["code"] == "invalid_sort"
+
+
+def test_curve_series_keeps_gaps(client):
+    body = client.get(
+        "/api/v2/curves/USD-UST-PAR/series",
+        params=[("tenors", 1.5), ("tenors", 120), ("from", "2024-11-01"), ("to", "2025-03-31")],
+    ).json()
+    assert body["series"]["120"][0] is not None
+    assert body["series"]["1.5"][0] is None  # 1.5M bill did not exist yet
+    assert len(body["dates"]) == len(body["series"]["120"])
+
+
+def test_price_yield_curve_is_convex_and_approximations_bracket(client):
+    body = client.get("/api/v2/securities/BM-T-0005/price-yield").json()
+    pts = {p["shift_bp"]: p for p in body["points"]}
+    base = body["base"]
+    assert abs(pts[0]["clean"] - base["clean"]) < 1e-6
+    for s in (-200, 200):
+        p = pts[s]
+        # convexity: exact price sits above the tangent line on both sides
+        assert p["clean"] > p["duration_estimate"]
+        # adding the convexity term gets much closer than duration alone
+        assert abs(p["convexity_estimate"] - p["clean"]) < abs(p["duration_estimate"] - p["clean"])
+    prices = [pts[s]["clean"] for s in sorted(pts)]
+    assert prices == sorted(prices, reverse=True)  # price falls as yield rises

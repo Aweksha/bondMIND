@@ -1,7 +1,16 @@
-# bondMIND AI
+# bondMIND
 
-A fixed-income research workstation: security screening, bond analytics, yield curves, and,
-in later milestones, explainable ML signals and portfolio scenario analysis.
+An educational fixed-income app with three features:
+
+1. **Bond Explorer** (`/bonds`): filter by type, sector, rating and maturity; search; sort
+   any column; see summary stats for the filtered set; open a bond for its price history,
+   position on the curve, risk figures and cash flows.
+2. **Yield Curve** (`/yield-curve`): compare the real U.S. Treasury curve on any two dates
+   since 2019, using presets (1D–3Y) or a date picker. Shows tenor tiles with bp changes,
+   curve-steepness cards (2s10s, 3M10Y, 5s30s) with one-year sparklines, and a full table.
+3. **Price Simulator** (`/simulator`): pick a bond, slide its yield ±300bp, and watch the
+   exact price move along the price–yield curve. The duration tangent line and convexity
+   correction are drawn with their errors, and short explanations sit alongside.
 
 > **Research tool only. Not investment advice.** The **Treasury yield curve is real**
 > (U.S. Department of the Treasury, public domain). The **bonds, issuers, ratings, spreads
@@ -19,7 +28,7 @@ make up            # or: docker compose up -d --build --wait
 
 | URL | What |
 | --- | --- |
-| http://localhost:8080 | Web app |
+| http://localhost:8080 | Web app: Bond Explorer, Yield Curve, Price Simulator |
 | http://localhost:8000/docs | API docs (OpenAPI / Swagger) |
 | localhost:5432 | PostgreSQL (`bondmind` / `bondmind`) |
 
@@ -122,6 +131,9 @@ and every valuation response includes them.
 | `GET /api/v2/curves/{id}/dates` | Dates and tenors that have observations (for date pickers) |
 | `GET /api/v2/curves/{id}/observations?dates=&tenors=` | Curve overlays for up to 6 dates. Missing tenors come back as `null`; weekends resolve to the prior day and are flagged |
 | `GET /api/v2/securities/{id}/analytics` | Prices, risk measures, Z/G-spread, discounted cash flows, assumptions |
+| `GET /api/v2/bonds` | Explorer list with filters, sorting, pages, summary stats and filter options |
+| `GET /api/v2/curves/{id}/series?tenors=` | Yield time series per tenor (used for the steepness sparklines) |
+| `GET /api/v2/securities/{id}/price-yield` | Exact price at each yield shift, plus duration and convexity estimates (simulator) |
 | `POST /api/v2/scenarios/evaluate` | Parallel, twist or key-rate shocks, repricing up to 10 bonds. Returns the input, units, warnings, data version and engine version |
 
 Requests accept camelCase (`baseDate`, `shockNodes`) or snake_case. When one bond fails
@@ -134,32 +146,15 @@ still price.
 with quality quarantine, CI, and OpenAPI docs. The UI has the shell, Overview, Screener
 (filters, sorting, pagination, CSV export), a basic Security page, and Data / Models.
 
-**Stage 2 (Requirements 2.0), in progress:**
-- Done: S2-C (pricing engine and golden tests), S2-B (real Treasury curve and overlays),
-  S2-A (Terminal) and S2-D (Curve Lab).
-- Next: S2-E (accounts, saved workspaces and scenarios), then S2-F (hardening).
-
-### Terminal (`/terminal`)
-Search with `/`, select a bond, and the detail and curve-context panels update. Each panel
-loads and fails on its own, and a new selection cancels requests still in flight. The
-detail panel shows prices, YTM, durations, convexity, signed DV01, Z/G-spread, history
-(yield or price, 3M–All, zoom) and discounted cash flows.
-
-### Curve Lab (`/curve-lab`)
-- Overlay up to 3 historical dates on the real Treasury curve. Missing tenors show as gaps
-  and "n/a", never zero.
-- Apply a parallel (±300bp slider or exact value), twist (2Y/10Y) or key-rate shock, and
-  hold or shock the credit spread.
-- The shocked curve previews instantly. Official prices come from the server and are
-  marked "updating…" until they arrive.
-- The view (bond, dates, shock) is kept in the URL, so you can share or bookmark it.
-- Export the curve table as CSV, the full scenario with its assumptions as JSON, and any
-  chart as PNG.
+**Current focus:** the three features above. Each page keeps its state in the URL, so a
+view can be shared or bookmarked. Earlier terminal and Curve Lab pages were folded into
+these; their old URLs redirect.
 
 ### Tests
 - `make test`: backend (pytest, QuantLib golden cases) and frontend unit tests (vitest).
-- `make e2e`: Playwright browser tests against the running stack. They cover search to
-  detail, overlay gaps, shock and reset, input clamping, out-of-order responses (the latest
-  action wins), and a failed valuation leaving the charts intact.
+- `make e2e`: Playwright browser tests against the running stack. They cover filter, sort,
+  detail and back (filters kept), the empty state, two-date curve comparison with gaps,
+  price simulation and convexity error, input clamping, error handling, and old-URL
+  redirects.
 
 The full scope is defined in the bondMIND AI SRS/PRD, v1.0, and the Requirements 2.0 addendum (7 November 2026).
