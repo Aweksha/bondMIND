@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     seed_dir: Path = REPO_ROOT / "data" / "seed"
     # Every response from a demo deployment carries this flag so the UI can label it.
     demo_mode: bool = True
+    # Production single-container mode: serve the built Angular app from this folder.
+    static_dir: Path | None = None
+    # Simple per-client request limit for the public site (requests per minute; 0 = off).
+    rate_limit_per_minute: int = 0
 
 
 @lru_cache

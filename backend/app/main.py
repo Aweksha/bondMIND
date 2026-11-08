@@ -7,6 +7,7 @@ from app.api import errors
 from app.api.v1.routes import router
 from app.api.v2.routes import router as router_v2
 from app.core.config import get_settings
+from app.web import install_frontend, install_rate_limit, install_security_headers
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
@@ -31,3 +32,8 @@ app.add_middleware(
 errors.install(app)
 app.include_router(router)
 app.include_router(router_v2)
+install_security_headers(app)
+if settings.rate_limit_per_minute > 0:
+    install_rate_limit(app, settings.rate_limit_per_minute)
+if settings.static_dir and (settings.static_dir / "index.html").exists():
+    install_frontend(app, settings.static_dir)  # must be last: catch-all route

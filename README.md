@@ -46,6 +46,28 @@ make test            # backend (pytest) + frontend (vitest)
 make lint
 ```
 
+## Deploy (free, on Render)
+
+The public website is one container (root `Dockerfile`). It serves the Angular app and the
+API, with a SQLite database built into the image from the committed seed files. No paid or
+expiring database is involved. `render.yaml` describes the service.
+
+One-time setup:
+1. Sign in at https://render.com with GitHub (free plan).
+2. Go to **New → Blueprint**, pick the `bondMIND` repository, and click **Apply**.
+3. When the build finishes, the site is live at `https://bondmind.onrender.com` (or the
+   URL Render shows, if that name is taken).
+
+After that, every push to `main` redeploys automatically. On the free plan the site sleeps
+after 15 minutes with no visitors, and the first visit afterwards takes about a minute to
+wake it.
+
+Run the production image locally:
+```bash
+docker build -t bondmind-web-prod .
+docker run -p 8090:10000 -e PORT=10000 bondmind-web-prod   # http://localhost:8090
+```
+
 ## Repository layout
 
 ```
