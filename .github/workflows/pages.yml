@@ -1,0 +1,74 @@
+name: Website (GitHub Pages)
+
+# Builds the static site (data pre-computed by the validated Python engine), tests it in a
+# browser exactly as Pages will serve it, then publishes to https://aweksha.github.io/bondMIND/
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Pre-compute data files
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          python -m app.export.static_site ../frontend/public/data
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build the site for /bondMIND/
+        working-directory: frontend
+        run: |
+          npm ci
+          npx ng build --configuration production --base-href /bondMIND/
+          cp dist/frontend/browser/index.html dist/frontend/browser/404.html
+          touch dist/frontend/browser/.nojekyll
+      - name: Browser tests against the built site (served like GitHub Pages)
+        working-directory: frontend
+        run: |
+          node e2e/pages-server.mjs dist/frontend/browser 8095 /bondMIND/ &
+          npx playwright install --with-deps chromium
+          E2E_BASE_URL=http://localhost:8095/bondMIND/ npx playwright test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-pages
+          path: frontend/test-results
+          retention-days: 7
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist/frontend/browser
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

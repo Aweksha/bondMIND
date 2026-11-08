@@ -25,6 +25,7 @@ COPY data/ /app/data/
 COPY --from=web /app/dist/frontend/browser /app/static
 RUN useradd --create-home bondmind && mkdir -p /app/db \
     && alembic upgrade head && python -m app.seed.load \
+    && python -m app.export.static_site /app/static/data \
     && chown -R bondmind /app/db
 USER bondmind
 EXPOSE 8000

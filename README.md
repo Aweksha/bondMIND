@@ -41,32 +41,31 @@ reloads it.
 ```bash
 make backend-setup   # once: Python venv + deps (Python 3.12+)
 make api             # Postgres in Docker, API on :8000 with --reload
-make web             # Angular dev server on :4200, proxies /api -> :8000
+make web             # exports data, then Angular dev server on :4200
 make test            # backend (pytest) + frontend (vitest)
 make lint
 ```
 
-## Deploy (free, on Render)
+## Website (GitHub Pages, free)
 
-The public website is one container (root `Dockerfile`). It serves the Angular app and the
-API, with a SQLite database built into the image from the committed seed files. No paid or
-expiring database is involved. `render.yaml` describes the service.
+Live at **https://aweksha.github.io/bondMIND/**.
 
-One-time setup:
-1. Sign in at https://render.com with GitHub (free plan).
-2. Go to **New → Blueprint**, pick the `bondMIND` repository, and click **Apply**.
-3. When the build finishes, the site is live at `https://bondmind.onrender.com` (or the
-   URL Render shows, if that name is taken).
+GitHub Pages only serves static files, so the figures are computed at build time.
+`backend/app/export/static_site.py` runs the same validated engine as the API over every
+bond and writes JSON files (`bonds.json`, `bonds/{id}.json`, `price-yield/{id}.json`,
+`curve.json`, and others). The Angular app reads those files, and filtering, sorting and
+date lookups run in the browser using the same rules as the API. `tests/test_export.py`
+checks that the exported figures match the API.
 
-After that, every push to `main` redeploys automatically. On the free plan the site sleeps
-after 15 minutes with no visitors, and the first visit afterwards takes about a minute to
-wake it.
+`.github/workflows/pages.yml` runs on every push to `main`. It exports the data, builds the
+site for `/bondMIND/`, runs the browser tests against it served the same way Pages serves
+it, and then publishes.
 
-Run the production image locally:
-```bash
-docker build -t bondmind-web-prod .
-docker run -p 8090:10000 -e PORT=10000 bondmind-web-prod   # http://localhost:8090
-```
+Preview the Pages build locally: `make pages-preview` (http://localhost:8095/bondMIND/).
+
+### Alternative: Render (live API)
+The root `Dockerfile` and `render.yaml` still deploy the whole thing (site and API) as one
+free Render web service, if you ever want the API online. See `render.yaml`.
 
 ## Repository layout
 

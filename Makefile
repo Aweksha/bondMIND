@@ -1,4 +1,4 @@
-.PHONY: up down reset-demo backend-setup api web test e2e lint seed-generate refresh-curve
+.PHONY: export pages-preview up down reset-demo backend-setup api web test e2e lint seed-generate refresh-curve
 
 up:            ## Start the full stack (db + api + web) at http://localhost:8080
 	docker compose up -d --build --wait
@@ -17,8 +17,14 @@ api:           ## Run the API locally against the compose database
 	cd backend && .venv/bin/alembic upgrade head && .venv/bin/python -m app.seed.load && \
 	  .venv/bin/uvicorn app.main:app --reload
 
-web:           ## Run the Angular dev server (proxies /api to :8000)
+export:        ## Pre-compute the website's data files into frontend/public/data
+	cd backend && .venv/bin/python -m app.export.static_site ../frontend/public/data
+
+web: export    ## Run the Angular dev server on :4200
 	cd frontend && npx ng serve
+
+pages-preview: export ## Build exactly what GitHub Pages serves and preview it on :8095
+	cd frontend && npx ng build --base-href /bondMIND/ && cp dist/frontend/browser/index.html dist/frontend/browser/404.html && node e2e/pages-server.mjs dist/frontend/browser 8095
 
 seed-generate: ## Regenerate synthetic CSV snapshots (deterministic)
 	cd backend && .venv/bin/python -m app.seed.generate

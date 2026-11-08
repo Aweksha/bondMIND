@@ -6,3 +6,4 @@
 **/.angular
 **/dist
 .git
+frontend/public/data

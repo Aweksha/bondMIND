@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Bond Explorer', () => {
   test('filter, sort, open a bond, and come back to the same view', async ({ page }) => {
-    await page.goto('/bonds');
+    await page.goto('./bonds');
     await expect(page.locator('.stat-strip')).toContainText('Bonds');
     await page.locator('.select-pill', { hasText: 'Rating' }).locator('select').selectOption('BBB');
     await expect(page).toHaveURL(/rating=BBB/);
@@ -29,13 +29,13 @@ test.describe('Bond Explorer', () => {
   });
 
   test('numbers are formatted, not raw', async ({ page }) => {
-    await page.goto('/bonds?bond_type=corporate');
+    await page.goto('./bonds?bond_type=corporate');
     const coupon = page.locator('tbody tr').first().locator('td').nth(3);
     await expect(coupon).toHaveText(/^\s*\d+\.\d{3}\s*$/);
   });
 
   test('search with no matches shows an empty state', async ({ page }) => {
-    await page.goto('/bonds');
+    await page.goto('./bonds');
     await page.getByLabel('Search bonds').fill('zzzz-no-such-bond');
     await expect(page.getByText('No bonds match these filters.')).toBeVisible();
     await page.getByRole('button', { name: 'Clear filters' }).click();
@@ -45,7 +45,7 @@ test.describe('Bond Explorer', () => {
 
 test.describe('Yield Curve', () => {
   test('compare two dates with presets and a custom date; gaps stay gaps', async ({ page }) => {
-    await page.goto('/yield-curve');
+    await page.goto('./yield-curve');
     await expect(page.locator('.tile').first()).toContainText('%');
     await page.getByRole('button', { name: '1Y', exact: true }).click();
     await expect(page).toHaveURL(/compare=1Y/);
@@ -63,7 +63,7 @@ test.describe('Yield Curve', () => {
 
 test.describe('Price Simulator', () => {
   test('moving the yield reprices the bond and shows the duration error', async ({ page }) => {
-    await page.goto('/simulator?bond=BM-T-0007');
+    await page.goto('./simulator?bond=BM-T-0007');
     await page.getByRole('button', { name: '+100', exact: true }).click();
     await expect(page).toHaveURL(/shift=100/);
     const price = page.locator('.kpi', { hasText: 'Price' }).first().locator('small');
@@ -76,7 +76,7 @@ test.describe('Price Simulator', () => {
   });
 
   test('exact input is clamped to ±300 bp', async ({ page }) => {
-    await page.goto('/simulator?bond=BM-T-0007');
+    await page.goto('./simulator?bond=BM-T-0007');
     const input = page.locator('input.bp-input');
     await input.fill('900');
     await input.dispatchEvent('change');
@@ -84,23 +84,23 @@ test.describe('Price Simulator', () => {
   });
 
   test('a failed calculation shows an error without breaking the controls', async ({ page }) => {
-    await page.route('**/price-yield*', (route) =>
+    await page.route('**/data/price-yield/**', (route) =>
       route.fulfill({
         status: 500,
         contentType: 'application/json',
-        body: JSON.stringify({ code: 'internal_error', message: 'Internal server error' }),
+        body: JSON.stringify({}),
       }),
     );
-    await page.goto('/simulator?bond=BM-T-0007');
-    await expect(page.getByRole('alert')).toContainText('Internal server error');
+    await page.goto('./simulator?bond=BM-T-0007');
+    await expect(page.getByRole('alert')).toContainText('Could not load data (500)');
     await expect(page.getByLabel('Change in yield in basis points')).toBeVisible();
     await expect(page.getByText('What am I looking at?')).toBeVisible();
   });
 });
 
 test('old links redirect to the new pages', async ({ page }) => {
-  await page.goto('/curve-lab');
+  await page.goto('./curve-lab');
   await expect(page).toHaveURL(/\/yield-curve/);
-  await page.goto('/terminal/security/BM-C-0001');
+  await page.goto('./terminal/security/BM-C-0001');
   await expect(page).toHaveURL(/\/bonds\/BM-C-0001/);
 });
